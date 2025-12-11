@@ -1,11 +1,13 @@
+namespace DemoApi.Utils;
+
 public class ApiResponse<T>
 {
-    public T Data { get; set; }
+    public T? Data { get; set; }
     public string Message { get; set; }
     public ResponseType Type { get; set; }
 
     // Constructor simplu
-    public ApiResponse(T data, string message, ResponseType type)
+    public ApiResponse(T? data, string message, ResponseType type)
     {
         Data = data;
         Message = message;
@@ -23,7 +25,7 @@ public class ApiResponse<T>
     public static ApiResponse<T> Error(string message)
     {
         // default(T) pune null pentru obiecte sau 0 pentru numere
-        return new ApiResponse<T>(default(T), message, ResponseType.Error);
+        return new ApiResponse<T>(default, message, ResponseType.Error);
     }
     
     public static ApiResponse<T> Warn(T data, string message)

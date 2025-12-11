@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.AspNetCore.Authorization;
+using DemoApi.Services;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -23,6 +24,7 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
 
 builder.Services.AddAuthorization();
 builder.Services.AddControllers();
+builder.Services.AddScoped<IAuthService, AuthService>();
 
 // ---> ADAUGĂ ACESTE DOUĂ LINII <---
 builder.Services.AddEndpointsApiExplorer();
@@ -43,26 +45,6 @@ app.MapControllers();
 
 app.UseAuthentication();
 app.UseAuthorization();
-
-app.MapPost("/login", async (HttpContext http, IConfiguration config) =>
-{
-    using var httpClient = new HttpClient();
-
-    var keycloakUrl = config["Keycloak:TokenUrl"];
-    using var form = new FormUrlEncodedContent(new Dictionary<string, string>
-    {
-        {"grant_type", "password"},
-        {"client_id", config["Keycloak:ClientId"]!}, 
-        {"client_secret", config["Keycloak:ClientSecret"]!},
-        {"username", http.Request.Form["username"]!},
-        {"password", http.Request.Form["password"]!}
-    });
-
-    var response = await httpClient.PostAsync(keycloakUrl, form);
-    var content = await response.Content.ReadAsStringAsync();
-
-    return Results.Content(content, "application/json");
-});
 
 app.MapGet("/public-data", () => "Endpoint public OK");
 

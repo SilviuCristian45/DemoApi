@@ -1,7 +1,8 @@
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Authorization; // <--- Import obligatoriu
+using DemoApi.Utils;
 
-namespace MyShopApi.Controllers;
+namespace DemoApi.Controllers;
 
 // 1. [ApiController] = @Controller() din NestJS
 // Îi spune framework-ului că asta e o clasă de API (validează automat body-ul, etc.)
