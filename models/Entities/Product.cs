@@ -1,4 +1,5 @@
 using System.ComponentModel.DataAnnotations; // Pt [Key], [Required]
+using System.ComponentModel.DataAnnotations.Schema; // Pt ForeignKey
 
 namespace DemoApi.Models.Entities;
 
@@ -15,4 +16,11 @@ public class Product
 
     // Putem adăuga un câmp de dată creată automat
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+
+    public int? CategoryId { get; set; } 
+
+    // 2. Proprietatea de Navigare (Obiectul C#)
+    // Asta te ajută să scrii: product.Category.Name
+    [ForeignKey("CategoryId")] // Leagă proprietatea de ID-ul de mai sus
+    public Category? Category { get; set; }
 }

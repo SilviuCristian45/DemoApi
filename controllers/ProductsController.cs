@@ -32,11 +32,10 @@ public class ProductsController : ControllerBase
 
     // 3. GET: api/products
     [HttpGet] // = @Get()
-    public ActionResult<ApiResponse<List<string>>> GetAll()
+    public async Task<ActionResult<ApiResponse<List<GetProductsResponse>>>> GetAll()
     {
-        var response = ApiResponse<List<string>>.Success(Products, "Am găsit toate produsele");
-        
-        return Ok(response);
+        var products = await _productService.GetAll();
+        return Ok(products);
     }
 
     // 4. GET: api/products/{index}
@@ -60,7 +59,7 @@ public class ProductsController : ControllerBase
     [Authorize(Roles = nameof(Role.ADMIN))] // <--- 3. DOAR ADMINII pot adăuga produse
     public async Task<ActionResult<ApiResponse<string>>> Create([FromBody] CreateProductDto newProduct) 
     {
-        var result = await _productService.Create(new Models.Entities.Product { Name = newProduct.Name, Price = newProduct.Price });
-        return Ok(ApiResponse<string>.Success(result.Message)); // 201 Created
+        var result = await _productService.Create(new Models.Entities.Product { Name = newProduct.Name, Price = newProduct.Price, CategoryId = newProduct.CategoryId });
+        return Ok(ApiResponse<string>.Success(result.Message));
     }
 }

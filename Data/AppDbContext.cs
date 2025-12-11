@@ -14,5 +14,5 @@ public class AppDbContext : DbContext
     // Aici definim tabelele. Numele proprietății = Numele tabelului în SQL.
     public DbSet<Product> Products { get; set; }
 
-    
+    public DbSet<Category> Categories { get; set; }
 }

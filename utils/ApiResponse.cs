@@ -7,7 +7,7 @@ public class ApiResponse<T>
     public ResponseType Type { get; set; }
 
     // Constructor simplu
-    public ApiResponse(T? data, string message, ResponseType type)
+    public ApiResponse(T data, string message, ResponseType type)
     {
         Data = data;
         Message = message;
