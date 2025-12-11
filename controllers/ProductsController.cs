@@ -1,6 +1,8 @@
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Authorization; // <--- Import obligatoriu
 using DemoApi.Utils;
+using DemoApi.Services;
+using DemoApi.Models;
 
 namespace DemoApi.Controllers;
 
@@ -14,7 +16,13 @@ namespace DemoApi.Controllers;
 [Route("api/[controller]")]
 public class ProductsController : ControllerBase
 {
-    // Simulăm o bază de date temporară (statică) doar ca să testăm
+    private IProductService _productService;
+
+    public ProductsController(IProductService productService)
+    {
+        _productService = productService;
+    }
+
     private static readonly List<string> Products = new List<string> 
     { 
         "Laptop", 
@@ -50,9 +58,9 @@ public class ProductsController : ControllerBase
     [HttpPost] // = @Post()
     // [FromBody] e implicit, nu trebuie scris neapărat
     [Authorize(Roles = nameof(Role.ADMIN))] // <--- 3. DOAR ADMINII pot adăuga produse
-    public ActionResult<ApiResponse<string>> Create([FromBody] string newProduct) 
+    public async Task<ActionResult<ApiResponse<string>>> Create([FromBody] CreateProductDto newProduct) 
     {
-        Products.Add(newProduct);
-        return Ok(ApiResponse<string>.Success(newProduct)); // 201 Created
+        var result = await _productService.Create(new Models.Entities.Product { Name = newProduct.Name, Price = newProduct.Price });
+        return Ok(ApiResponse<string>.Success(result.Message)); // 201 Created
     }
 }

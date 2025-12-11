@@ -26,7 +26,7 @@ public class AuthService : IAuthService
     public async Task<ApiResponse<LoginResponse>> LoginAsync(LoginRequest request)
     {
         var tokenUrl = _configuration["Keycloak:TokenUrl"];
-        
+        Console.WriteLine($" token url is {tokenUrl}");
         var keycloakParams = new Dictionary<string, string>
         {
             {"grant_type", "password"},

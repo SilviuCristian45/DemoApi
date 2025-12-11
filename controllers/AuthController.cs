@@ -14,18 +14,11 @@ public class AuthController : ControllerBase
 
     private readonly IAuthService _authService;
 
-    public AuthController(IConfiguration configuration, IWebHostEnvironment env, IAuthService authService)
+    public AuthController(IConfiguration configuration, IAuthService authService)
     {
          _configuration = configuration;
         // 2. Dacă suntem în Development, ignorăm erorile de certificat SSL
-        var handler = new HttpClientHandler();
-        if (env.IsDevelopment())
-        {
-            // Această linie spune: "Returnează true (valid) indiferent ce eroare are certificatul"
-            handler.ServerCertificateCustomValidationCallback = 
-                HttpClientHandler.DangerousAcceptAnyServerCertificateValidator;
-        }
-        _httpClient = new HttpClient(handler); // Simplificare pt moment
+        _httpClient = new HttpClient(); // Simplificare pt moment
         _authService = authService;
     }
 

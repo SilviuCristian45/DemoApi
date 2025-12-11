@@ -1,0 +1,8 @@
+generare migrari
+
+dotnet ef migrations add InitialCreate
+
+update migrari
+
+dotnet ef database update
+
