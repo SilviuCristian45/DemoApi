@@ -1,13 +1,15 @@
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.AspNetCore.Authorization;
-using DemoApi.Services;
-using DemoApi.Data;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.OpenApi.Models;
 using DemoApi.Utils;
 using System.Security.Claims; // <--- OBLIGATORIU
 using System.Text.Json;       // <--- OBLIGATORIU
+
+using DemoApi.Hubs;
+using DemoApi.Services;
+using DemoApi.Data;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -74,6 +76,19 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
         };
     });
 
+builder.Services.AddCors(options =>
+{
+    options.AddPolicy("AllowAll", policy =>
+    {
+        policy.AllowAnyMethod()
+              .AllowAnyHeader()
+              // Truc pentru Dev: Lăsăm orice origine, dar acceptăm și Credentials
+              .SetIsOriginAllowed(origin => true) 
+              .AllowCredentials(); // <--- OBLIGATORIU pentru SignalR
+    });
+});
+
+builder.Services.AddSignalR();
 builder.Services.AddAuthorization();
 builder.Services.AddControllers();
 builder.Services.AddScoped<IAuthService, AuthService>();
@@ -105,6 +120,7 @@ builder.Services.AddSwaggerGen(c =>
 
 var app = builder.Build();
 
+
 // De obicei Swagger e activat doar în Development (ca să nu expui API-ul public)
 if (app.Environment.IsDevelopment())
 {
@@ -112,6 +128,7 @@ if (app.Environment.IsDevelopment())
     app.UseSwaggerUI(); // Generează interfața grafică HTML (ex: /swagger/index.html)
 }
 
+app.MapHub<NotificationsHub>("/hubs/notifications"); // Asta va fi adresa ws://localhost:port/hubs/notifications
 
 using (var scope = app.Services.CreateScope())
 {
@@ -132,6 +149,7 @@ using (var scope = app.Services.CreateScope())
     }
 }
 
+app.UseCors("AllowAll");
 app.UseHttpsRedirection();
 app.MapControllers();
 

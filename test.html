@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Test SignalR MyShop</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/microsoft-signalr/8.0.0/signalr.min.js"></script>
+    <style>
+        body { font-family: sans-serif; padding: 20px; }
+        .status { padding: 10px; border-radius: 5px; color: white; display: inline-block; }
+        .connected { background-color: green; }
+        .disconnected { background-color: red; }
+        #log { background: #f0f0f0; padding: 10px; border: 1px solid #ccc; height: 300px; overflow-y: scroll; margin-top: 10px; }
+    </style>
+</head>
+<body>
+    <h2>🔌 Test Conexiune SignalR</h2>
+    
+    <div>Status: <span id="statusBadge" class="status disconnected">Deconectat</span></div>
+    
+    <div style="margin-top: 20px;">
+        <input type="text" id="userInput" placeholder="Nume User" value="TestUser" />
+        <input type="text" id="messageInput" placeholder="Mesaj..." />
+        <button onclick="sendMessage()">Trimite Mesaj</button>
+    </div>
+
+    <h3>Log Mesaje:</h3>
+    <ul id="log"></ul>
+
+    <script>
+        // --- CONFIGURARE ---
+        // 1. Pune aici URL-ul tău (atenție la port!)
+        const HUB_URL = "http://localhost:5044/hubs/notifications"; 
+        
+
+        // --- LOGICA SIGNALR ---
+        const connection = new signalR.HubConnectionBuilder()
+            .withUrl(HUB_URL)
+            .withAutomaticReconnect() // Încearcă să se reconecteze singur
+            .configureLogging(signalR.LogLevel.Information)
+            .build();
+
+        // 1. Ascultăm mesajele venite de la Server
+        connection.on("ReceiveMessage", (user, message) => {
+            const li = document.createElement("li");
+            li.textContent = `${new Date().toLocaleTimeString()} - ${user}: ${message}`;
+            document.getElementById("log").appendChild(li);
+        });
+
+        // 2. Pornim conexiunea
+        async function start() {
+            try {
+                await connection.start();
+                console.log("SignalR Conectat!");
+                const badge = document.getElementById("statusBadge");
+                badge.innerText = "CONECTAT ✅";
+                badge.className = "status connected";
+            } catch (err) {
+                console.error(err);
+                const badge = document.getElementById("statusBadge");
+                badge.innerText = "EROARE: " + err.toString();
+            }
+        }
+
+        // 3. Funcția de trimis mesaj (când apeși butonul)
+        async function sendMessage() {
+            const user = document.getElementById("userInput").value;
+            const message = document.getElementById("messageInput").value;
+            try {
+                // Apelează metoda "SendMessage" din C# (NotificationsHub.cs)
+                await connection.invoke("SendMessage", user, message);
+            } catch (err) {
+                console.error(err);
+            }
+        }
+
+        start();
+    </script>
+</body>
+</html>
