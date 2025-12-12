@@ -60,6 +60,6 @@ public class ProductsController : ControllerBase
     public async Task<ActionResult<ApiResponse<string>>> Create([FromBody] CreateProductDto newProduct) 
     {
         var result = await _productService.Create(new Models.Entities.Product { Name = newProduct.Name, Price = newProduct.Price, CategoryId = newProduct.CategoryId });
-        return Ok(ApiResponse<string>.Success(result.Message));
+        return Ok(ApiResponse<string>.Success(newProduct.Name, result.Message));
     }
 }

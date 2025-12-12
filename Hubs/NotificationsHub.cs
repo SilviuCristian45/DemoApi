@@ -17,6 +17,6 @@ public class NotificationsHub : Hub
     {
         var userId = Context.UserIdentifier; // ID-ul din Tokenul JWT
         await base.OnConnectedAsync();
-        Console.WriteLine($"Userul {userId} s-a conectat la WebSocket!");
+        Console.WriteLine($"Userul s-a conectat la WebSocket!");
     }
 }

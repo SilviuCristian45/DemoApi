@@ -6,7 +6,11 @@ using Microsoft.OpenApi.Models;
 using DemoApi.Utils;
 using System.Security.Claims; // <--- OBLIGATORIU
 using System.Text.Json;       // <--- OBLIGATORIU
+using FluentValidation;
+using FluentValidation.AspNetCore;
 
+using Microsoft.AspNetCore.Mvc; // Pt ApiBehaviorOptions
+using DemoApi.Models; // Pt ApiResponse
 using DemoApi.Hubs;
 using DemoApi.Services;
 using DemoApi.Data;
@@ -76,6 +80,14 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
         };
     });
 
+
+
+// ... builder.Services.AddControllers();
+
+
+
+// ... builder.Services.AddFluentValidationAutoValidation(); ...
+
 builder.Services.AddCors(options =>
 {
     options.AddPolicy("AllowAll", policy =>
@@ -94,9 +106,37 @@ builder.Services.AddControllers();
 builder.Services.AddScoped<IAuthService, AuthService>();
 builder.Services.AddScoped<IProductService, ProductService>();
 
+builder.Services.AddFluentValidationAutoValidation(); // Activează validarea automată înainte de Controller
+builder.Services.AddValidatorsFromAssemblyContaining<Program>();
+
 AppContext.SetSwitch("Npgsql.EnableLegacyTimestampBehavior", true);
 builder.Services.AddDbContext<AppDbContext>(options => 
     options.UseNpgsql(builder.Configuration.GetConnectionString("DefaultConnection")));
+
+// ---> BLOCUL DE STANDARDIZARE A ERORILOR DE VALIDARE <---
+builder.Services.Configure<ApiBehaviorOptions>(options =>
+{
+    // Suprascriem fabrica ce generează răspunsul de eroare 400
+    options.InvalidModelStateResponseFactory = context =>
+    {
+        // 1. Extragem toate erorile din ModelState
+        // Rezultatul va fi o listă de string-uri: ["Numele este obligatoriu", "Prețul e negativ"]
+        Console.WriteLine(context.ModelState);
+        var errors = context.ModelState
+            .Where(e => e.Value.Errors.Count > 0)
+            .SelectMany(x => x.Value.Errors)
+            .Select(x => x.ErrorMessage)
+            .ToList();
+        
+        // 3. Creăm obiectul tău standard ApiResponse
+        // (Presupun că ai o metodă .Error() care acceptă și o listă de detalii/erori)
+        // Dacă nu ai câmp de List<string> în ApiResponse, poți face string.Join(", ", errors)
+        var response = ApiResponse<object?>.Error(errors);
+
+        // 4. Returnăm 400 Bad Request cu formatul NOSTRU
+        return new BadRequestObjectResult(response);
+    };
+});
 
 
 // ---> ADAUGĂ ACESTE DOUĂ LINII <---

@@ -3,29 +3,48 @@ namespace DemoApi.Utils;
 public class ApiResponse<T>
 {
     public T? Data { get; set; }
-    public string Message { get; set; }
+    public List<string> Message { get; set; }
     public ResponseType Type { get; set; }
 
     // Constructor simplu
-    public ApiResponse(T data, string message, ResponseType type)
+    public ApiResponse(T? data, string message, ResponseType type)
     {
         Data = data;
-        Message = message;
+        Message = new List<string>();
+        Message.Add(message);
         Type = type;
     }
 
-    // --- HELPER METHODS (Syntax Sugar) ---
-    // Astea te ajută să scrii mai puțin cod în Controller
-    
+    public ApiResponse() { Message = new List<string>(); }
+
     public static ApiResponse<T> Success(T data, string message = "Operațiune reușită")
     {
         return new ApiResponse<T>(data, message, ResponseType.Success);
     }
 
-    public static ApiResponse<T> Error(string message)
+    public static ApiResponse<T> Success(T data, List<string> messages)
     {
-        // default(T) pune null pentru obiecte sau 0 pentru numere
-        return new ApiResponse<T>(default, message, ResponseType.Error);
+        return new ApiResponse<T>(data, messages.ElementAt(0), ResponseType.Success);
+    }
+
+    public static ApiResponse<T>? Error(List<string>? errors = null)
+    {
+        return new ApiResponse<T>
+        { 
+            Data = default(T),
+            Type = ResponseType.Error, 
+            Message = new List<string>(errors), 
+        };
+    }
+
+     public static ApiResponse<T>? Error(string error)
+    {
+        return new ApiResponse<T> 
+        { 
+            Data = default(T),
+            Type = ResponseType.Error, 
+            Message = new List<string>() { error }, 
+        };
     }
     
     public static ApiResponse<T> Warn(T data, string message)
