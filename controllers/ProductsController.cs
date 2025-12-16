@@ -67,11 +67,11 @@ public class ProductsController : ControllerBase
 
     [HttpPost("uploadImage/{index}")]
     [Authorize(Roles = nameof(Role.ADMIN))]
-    public async Task<ActionResult<ApiResponse<string>>> UploadImage(int index, IFormFile file) { 
+    public async Task<ActionResult<ApiResponse<string>>> UploadImage(int index, [FromForm] UploadImageDto uploadImageDto) { 
+        var file = uploadImageDto.File;
         try {
             Console.WriteLine(Path.GetExtension(file.FileName));
             Console.WriteLine(file.ContentType);
-
             var folderPath = Path.Combine(Directory.GetCurrentDirectory(), "wwwroot", "uploads");
 
             if (!Directory.Exists(folderPath))
@@ -83,18 +83,27 @@ public class ProductsController : ControllerBase
             var fileName =  Guid.NewGuid().ToString() + extension;
             var fullPath = Path.Combine(folderPath, fileName);
 
+            Boolean isProductExisting = await _productService.IsProductExisting(index);
+
+            if (isProductExisting == false) {
+                _logger.LogWarning("Url-ul imaginii nu a fost actualizat in db. Nu s-a gasit id-ul ", index);
+                return NotFound(ApiResponse<string>.Error($"Produsul {index} nu a fost gasit"));
+            } 
+
             using (var sr = new FileStream(fullPath, FileMode.Create)) {
                 await file.CopyToAsync(sr);
             }
 
-            _logger.LogInformation("Imagine uploadată cu succes: {NumeFisier}", fullPath);
+            var updateResult = await _productService.Update(index, new Models.Entities.UpdateProductDto {Image = fileName});
+
+            _logger.LogInformation("Imagine uploadată cu succes: {NumeFisier} si url salvat in db", fullPath);
 
             return Ok(ApiResponse<string>.Success(fileName));
 
         } catch(Exception e) {
-            _logger.LogError("Am primit o cerere pentru toate produsele.");
+            _logger.LogError("eroare upload imagine ");
             _logger.LogError(e, e.ToString());
-            return BadRequest("eroare procesare fisier");
+            return BadRequest(ApiResponse<string>.Error("eroare procesare fisier"));
         }
        
         //return Ok(ApiResponse<string>.Success($"salutare . returnam imagine pentru {index}"));

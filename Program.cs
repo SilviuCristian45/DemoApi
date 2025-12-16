@@ -169,6 +169,7 @@ if (app.Environment.IsDevelopment())
 }
 
 app.MapHub<NotificationsHub>("/hubs/notifications"); // Asta va fi adresa ws://localhost:port/hubs/notifications
+app.UseStaticFiles(); // <--- Asta face folderul wwwroot public
 
 using (var scope = app.Services.CreateScope())
 {
@@ -176,7 +177,6 @@ using (var scope = app.Services.CreateScope())
     try
     {
         var context = services.GetRequiredService<AppDbContext>();
-        
         // Comanda magică: Aplică toate migrările care lipsesc (echivalentul 'dotnet ef database update')
         // Dacă baza nu există, o creează. Dacă există, o actualizează.
         context.Database.Migrate(); 

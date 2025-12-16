@@ -23,4 +23,6 @@ public class Product
     // Asta te ajută să scrii: product.Category.Name
     [ForeignKey("CategoryId")] // Leagă proprietatea de ID-ul de mai sus
     public Category? Category { get; set; }
+
+    public string Image { get; set; } = string.Empty;
 }

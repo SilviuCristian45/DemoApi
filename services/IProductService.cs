@@ -8,4 +8,7 @@ public interface IProductService
 {
     Task<ApiResponse<string>> Create(Product product);
     Task<ApiResponse<List<GetProductsResponse>>> GetAll();
+
+    Task<Product?> Update(int id, UpdateProductDto updateProductDto);
+    Task<Boolean> IsProductExisting(int id);
 }
