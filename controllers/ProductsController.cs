@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Authorization; // <--- Import obligatoriu
 using DemoApi.Utils;
 using DemoApi.Services;
 using DemoApi.Models;
+using DemoApi.Models.Entities;
 
 namespace DemoApi.Controllers;
 
@@ -34,10 +35,15 @@ public class ProductsController : ControllerBase
 
     // 3. GET: api/products
     [HttpGet] // = @Get()
-    public async Task<ActionResult<ApiResponse<List<GetProductsResponse>>>> GetAll()
+    public async Task<ActionResult<ApiResponse<PaginatedResponse<GetProductsResponse>>>> GetAll([FromQuery] PaginatedQueryDto paginatedQueryDto)
     {
-        var products = await _productService.GetAll();
-        return Ok(products);
+        var products = await _productService.GetAll(paginatedQueryDto);
+        var totalProducts = await _productService.Total(paginatedQueryDto);
+        return Ok(ApiResponse<PaginatedResponse<GetProductsResponse>>.Success( 
+            new PaginatedResponse<GetProductsResponse>
+                (totalProducts,
+                (totalProducts>paginatedQueryDto.PageSize) ? totalProducts / paginatedQueryDto.PageSize : 1,
+                products) ) );
     }
 
     // 4. GET: api/products/{index}
@@ -83,9 +89,9 @@ public class ProductsController : ControllerBase
             var fileName =  Guid.NewGuid().ToString() + extension;
             var fullPath = Path.Combine(folderPath, fileName);
 
-            Boolean isProductExisting = await _productService.IsProductExisting(index);
+            Product? product = await _productService.GetProductById(index);
 
-            if (isProductExisting == false) {
+            if (product == null) {
                 _logger.LogWarning("Url-ul imaginii nu a fost actualizat in db. Nu s-a gasit id-ul ", index);
                 return NotFound(ApiResponse<string>.Error($"Produsul {index} nu a fost gasit"));
             } 
@@ -93,10 +99,16 @@ public class ProductsController : ControllerBase
             using (var sr = new FileStream(fullPath, FileMode.Create)) {
                 await file.CopyToAsync(sr);
             }
+    
+            var deleteOldImageIfExisting = await _productService.DeleteImageIfExisting(product.Image);
+
+            if (deleteOldImageIfExisting == false) {
+                _logger.LogWarning("stergere imagine veche esuata - verificati logurile de mai sus");
+            }
 
             var updateResult = await _productService.Update(index, new Models.Entities.UpdateProductDto {Image = fileName});
 
-            _logger.LogInformation("Imagine uploadată cu succes: {NumeFisier} si url salvat in db", fullPath);
+            _logger.LogInformation("Imagine uploadată cu succes: {  } si url salvat in db", fullPath);
 
             return Ok(ApiResponse<string>.Success(fileName));
 

@@ -11,11 +11,13 @@ class ProductService: IProductService
 {
 
     private readonly AppDbContext _context;
+    private readonly ILogger<ProductService> _logger;
 
     // Injectăm Baza de Date AICI, nu în Controller
-    public ProductService(AppDbContext context)
+    public ProductService(AppDbContext context, ILogger<ProductService> logger)
     {
         _context = context;
+        _logger  = logger;
     }
 
 
@@ -26,15 +28,19 @@ class ProductService: IProductService
         return ApiResponse<string>.Success(product.Name);
     }
 
-    public async Task<ApiResponse<List<GetProductsResponse>>> GetAll() {
-        var response = await _context.Products.Select(p => new GetProductsResponse(
+    public async Task<List<GetProductsResponse>> GetAll(PaginatedQueryDto paginatedQueryDto) {
+        var response = await _context.Products
+        .Where(p => p.Name.Contains(paginatedQueryDto.Search) || (p.Category != null ? p.Category.Name : "Fara categorie").Contains(paginatedQueryDto.Search) )
+        .Skip((paginatedQueryDto.PageNumber - 1) * paginatedQueryDto.PageSize)
+        .Take(paginatedQueryDto.PageSize)
+        .Select(p => new GetProductsResponse(
             p.Id, 
             p.Name, 
             p.Price,
             p.Category != null ? p.Category.Name : "Fără Categorie"
-        )).ToListAsync();
-
-        return ApiResponse<List<GetProductsResponse>>.Success(response);
+        ))
+        .ToListAsync();
+        return response ?? new List<GetProductsResponse>();
     }
 
     public async Task<Product?> Update(int id, UpdateProductDto updateProductDto) {
@@ -68,6 +74,33 @@ class ProductService: IProductService
         Product? product = await _context.Products.FindAsync(id);
         return product != null;
     }
+
+    public async Task<Boolean> DeleteImageIfExisting(string image) {
+        if (string.IsNullOrEmpty(image)) return false;
+
+        var filePath = Path.Combine(Directory.GetCurrentDirectory(), "wwwroot", "uploads", image);
+
+        if (File.Exists(filePath) == false) {
+            return false;
+        }
+
+        try {
+            File.Delete(filePath);
+            return true;
+        } catch(Exception exception) {
+            _logger.LogWarning(exception, exception.ToString());
+            return false;
+        }
+    }
+
+    public async Task<Product?> GetProductById(int id) {
+        return await _context.Products.FindAsync(id);
+    }
+
+    public async Task<int> Total(PaginatedQueryDto paginatedQueryDto) {
+        return await _context.Products.CountAsync(p => p.Name.Contains(paginatedQueryDto.Search) || (p.Category != null ? p.Category.Name : "Fara categorie").Contains(paginatedQueryDto.Search));
+    }
+    
 
     
 }
