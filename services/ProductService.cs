@@ -102,23 +102,38 @@ class ProductService: IProductService
     }
     
     public async Task<Boolean> PlaceOrder(PlaceOrderRequest placeOrderRequest, string userId) {
-        // Folosim o tranzacție explicită pentru siguranță maximă (opțional, dar recomandat)
+        using var transaction = await _context.Database.BeginTransactionAsync();
         try {
-            decimal? totalPrice = await this.computeTotalPrice(placeOrderRequest);
-            if (totalPrice == null) {
-                return false;
+            decimal totalPrice = 0;
+            var newOrder = await _context.Orders.AddAsync(new Order() {
+                Price = 0,
+                userId = userId,
+            });
+            foreach (var item in placeOrderRequest.Items) {
+                Product? product = await this.GetProductById(item.ProductId);
+                if (product == null) {
+                    _logger.LogWarning("Produsul cu {produsId} nu a fost gasit in db", item.ProductId);
+                    return false;
+                }
+                if (product.Stock < item.Quantity) {
+                    _logger.LogWarning("Produsul {productName} are stocul ${stoc} si s-au cerut ${quantity} bucati. Nu se poate efectua comanda", product.Name, product.Stock, item.Quantity);
+                    return false;
+                }
+                decimal itemCostOnePiece = product.Price;
+                decimal cost = item.Quantity * itemCostOnePiece;
+                
+                product.Stock -= item.Quantity;
+
+                totalPrice += cost;
+
+                newOrder.Entity.orderItems.Add(new OrderItem() {
+                    ProductId = item.ProductId,
+                    Quantity = item.Quantity,
+                });
             }
-            Console.WriteLine(totalPrice);
-            int? orderCreatedId = await this.createOrder((decimal) totalPrice, placeOrderRequest, userId);
-            if (orderCreatedId == null) {
-                return false;
-            }
-            Boolean orderItemsCreated = await this.createOrderItems(orderCreatedId.Value, placeOrderRequest);
-            if (!orderItemsCreated) {
-                _logger.LogWarning("order items not created, check logs");
-                return false;
-            }
+            newOrder.Entity.Price = totalPrice;
             await _context.SaveChangesAsync();
+            await transaction.CommitAsync();
             return true;
         } catch(Exception ex) {
             _logger.LogError(ex, ex.ToString());
