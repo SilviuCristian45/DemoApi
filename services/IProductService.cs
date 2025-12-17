@@ -17,4 +17,6 @@ public interface IProductService
     Task<Boolean> DeleteImageIfExisting(string image);
 
     Task<int> Total(PaginatedQueryDto paginatedQueryDto);
+
+    Task<Boolean> PlaceOrder(PlaceOrderRequest placeOrderRequest, string userId);
 }

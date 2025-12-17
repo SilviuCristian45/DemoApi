@@ -4,6 +4,7 @@ using DemoApi.Utils;
 using DemoApi.Services;
 using DemoApi.Models;
 using DemoApi.Models.Entities;
+using System.Security.Claims; // <--- Nu uita asta!
 
 namespace DemoApi.Controllers;
 
@@ -117,7 +118,23 @@ public class ProductsController : ControllerBase
             _logger.LogError(e, e.ToString());
             return BadRequest(ApiResponse<string>.Error("eroare procesare fisier"));
         }
-       
-        //return Ok(ApiResponse<string>.Success($"salutare . returnam imagine pentru {index}"));
+    }
+
+
+    [HttpPost("orders")]
+    [Authorize(Roles = nameof(Role.USER))]
+    public async Task<ActionResult<ApiResponse<string>>> PlaceOrder([FromBody] PlaceOrderRequest placeOrderRequest) 
+    {
+        var keycloakId = User.FindFirstValue(ClaimTypes.NameIdentifier);    
+        if (string.IsNullOrEmpty(keycloakId))
+        {
+            return Unauthorized(ApiResponse<string>.Error("Utilizatorul nu a putut fi identificat."));
+        }
+
+        Boolean orderPlacedSuccess = await _productService.PlaceOrder(placeOrderRequest, keycloakId);
+        if (orderPlacedSuccess == false) {
+            return BadRequest(ApiResponse<string>.Error("Stoc epuizat produs sau o eroare interna a serverului"));
+        }
+        return (orderPlacedSuccess) ? Ok(ApiResponse<string>.Success("place order")) : BadRequest(ApiResponse<string>.Error("comanda nu s-a putut efectua"));
     }
 }

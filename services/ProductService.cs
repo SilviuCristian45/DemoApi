@@ -101,6 +101,92 @@ class ProductService: IProductService
         return await _context.Products.CountAsync(p => p.Name.Contains(paginatedQueryDto.Search) || (p.Category != null ? p.Category.Name : "Fara categorie").Contains(paginatedQueryDto.Search));
     }
     
+    public async Task<Boolean> PlaceOrder(PlaceOrderRequest placeOrderRequest, string userId) {
+        // Folosim o tranzacție explicită pentru siguranță maximă (opțional, dar recomandat)
+        try {
+            decimal? totalPrice = await this.computeTotalPrice(placeOrderRequest);
+            if (totalPrice == null) {
+                return false;
+            }
+            Console.WriteLine(totalPrice);
+            int? orderCreatedId = await this.createOrder((decimal) totalPrice, placeOrderRequest, userId);
+            if (orderCreatedId == null) {
+                return false;
+            }
+            Boolean orderItemsCreated = await this.createOrderItems(orderCreatedId.Value, placeOrderRequest);
+            if (!orderItemsCreated) {
+                _logger.LogWarning("order items not created, check logs");
+                return false;
+            }
+            await _context.SaveChangesAsync();
+            return true;
+        } catch(Exception ex) {
+            _logger.LogError(ex, ex.ToString());
+            return false;
+        }
+    }
 
+    private async Task<decimal?> computeTotalPrice(PlaceOrderRequest placeOrderRequest) {
+        decimal totalPrice = 0;
+        List<Product> productsToUpdate = new List<Product>();
+        foreach (var item in placeOrderRequest.Items)
+        {
+            Product? product = await this.GetProductById(item.ProductId);
+            if (product == null) {
+                _logger.LogWarning("Produsul cu {produsId} nu a fost gasit in db", item.ProductId);
+                return null;
+            }
+            if (product.Stock < item.Quantity) {
+                _logger.LogWarning("Produsul {productName} are stocul ${stoc} si s-au cerut ${quantity} bucati. Nu se poate efectua comanda", product.Name, product.Stock, item.Quantity);
+                return null;
+            }
+            decimal itemCostOnePiece = product.Price;
+            decimal cost = item.Quantity * itemCostOnePiece;
+            
+            product.Stock -= item.Quantity;
+            productsToUpdate.Append(product);
+
+            totalPrice += cost;
+        }
+
+        productsToUpdate.ForEach(product => _context.Products.Update(product));
+        await _context.SaveChangesAsync();
+
+        return totalPrice;
+    }
+
+    private async Task<int?> createOrder(decimal totalPrice, PlaceOrderRequest placeOrderRequest, string userId) {
+        try {
+            var newOrder = await _context.Orders.AddAsync(new Order() {
+                Price = totalPrice,
+                userId = userId,
+            });
+            await _context.SaveChangesAsync();
+            return newOrder.Entity.Id;
+        } catch (Exception exception) {
+            _logger.LogError(exception, exception.ToString());
+            return null;
+        }
+    }
+
+    private async Task<Boolean> createOrderItems(int orderId, PlaceOrderRequest placeOrderRequest)
+    {
+        try {
+            foreach (var item in placeOrderRequest.Items)
+            {
+                await _context.OrderItems.AddAsync(new OrderItem() {
+                    ProductId = item.ProductId,
+                    Quantity = item.Quantity, 
+                    OrderId = orderId,
+                });
+            }
+            await _context.SaveChangesAsync();
+            return true;
+        } catch(Exception ex) {
+            _logger.LogError(ex, ex.ToString());
+            return false;
+        }
+        
+    }
     
 }
