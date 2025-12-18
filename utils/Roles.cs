@@ -1,5 +1,5 @@
 namespace DemoApi.Utils;
 
 public enum Role {
-    ADMIN, DEV, USER, SUPER_ADMIN
+    ADMIN, DEV, USER, SUPER_ADMIN, GUEST
 }

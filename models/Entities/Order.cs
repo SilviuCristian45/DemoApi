@@ -1,7 +1,7 @@
 using System.ComponentModel.DataAnnotations; // Pt [Key], [Required]
 using System.ComponentModel.DataAnnotations.Schema; // Pt ForeignKey
 using System.Text.Json.Serialization; // Pt JsonIgnore
-
+using DemoApi.Utils;
 namespace DemoApi.Models.Entities;
 
 public class Order
@@ -18,4 +18,9 @@ public class Order
 
     [JsonIgnore] 
     public List<OrderItem> orderItems { get; set; } = new();
+
+    public OrderStatus Status { get; set; } = OrderStatus.Pending;
+
+    public string? PaymentIntentId { get; set; }
+
 }

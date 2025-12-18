@@ -7,14 +7,14 @@ using DemoApi.Models;
 
 using Microsoft.EntityFrameworkCore; // Pt ToListAsync
 
-class ProductService: IProductService
+class ProductsService: IProductService
 {
 
     private readonly AppDbContext _context;
-    private readonly ILogger<ProductService> _logger;
+    private readonly ILogger<ProductsService> _logger;
 
     // Injectăm Baza de Date AICI, nu în Controller
-    public ProductService(AppDbContext context, ILogger<ProductService> logger)
+    public ProductsService(AppDbContext context, ILogger<ProductsService> logger)
     {
         _context = context;
         _logger  = logger;

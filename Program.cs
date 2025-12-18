@@ -8,6 +8,7 @@ using System.Security.Claims; // <--- OBLIGATORIU
 using System.Text.Json;       // <--- OBLIGATORIU
 using FluentValidation;
 using FluentValidation.AspNetCore;
+using Stripe;
 
 using Microsoft.AspNetCore.Mvc; // Pt ApiBehaviorOptions
 using DemoApi.Models; // Pt ApiResponse
@@ -16,6 +17,7 @@ using DemoApi.Services;
 using DemoApi.Data;
 
 var builder = WebApplication.CreateBuilder(args);
+StripeConfiguration.ApiKey = builder.Configuration["Stripe:SecretKey"];
 
 var keycloakConfig = builder.Configuration.GetSection("Keycloak");
 
@@ -104,7 +106,9 @@ builder.Services.AddSignalR();
 builder.Services.AddAuthorization();
 builder.Services.AddControllers();
 builder.Services.AddScoped<IAuthService, AuthService>();
-builder.Services.AddScoped<IProductService, ProductService>();
+builder.Services.AddScoped<IProductService, ProductsService>();
+builder.Services.AddScoped<PaymentService>();
+builder.Services.AddScoped<IOrderService, OrderService>();
 
 builder.Services.AddFluentValidationAutoValidation(); // Activează validarea automată înainte de Controller
 builder.Services.AddValidatorsFromAssemblyContaining<Program>();
