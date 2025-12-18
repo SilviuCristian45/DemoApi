@@ -1,5 +1,6 @@
 namespace DemoApi.Services;
 
+using Stripe;
 using DemoApi.Data;
 using DemoApi.Models;
 using DemoApi.Utils;
@@ -29,18 +30,29 @@ public class OrderService:  IOrderService {
         // 2. Validări de securitate
         // TODO: Verifică dacă order.UserId este același cu user-ul logat!
         // Altfel eu pot plăti comanda ta (sau mai rău, pot vedea detalii despre ea).
-        if (order.userId?.Equals(userId) == false) {
+        if (order.userId?.Equals(userId) == false && userRole != Role.ADMIN) {
             return ServiceResult<PaymentResponseDto>.Fail($"plata nu a fost initiata de userul care a facut comanda");
         }
 
         if (order.Status == OrderStatus.Accepted)
             return ServiceResult<PaymentResponseDto>.Fail("Comanda este deja plătită.");
 
+        PaymentIntent intent;
         try
         {
-            // 3. Creăm intenția prin Stripe
-            var intent = await _paymentService.CreatePaymentIntentAsync(order);
+            if (string.IsNullOrEmpty(order.PaymentIntentId) == false) 
+            {
+                intent = await _paymentService.GetAsync(order.PaymentIntentId);
 
+                // Verificăm să nu fie deja plătită
+                if (intent.Status == "succeeded")
+                {
+                    return ServiceResult<PaymentResponseDto>.Fail("Această comandă este deja plătită la Stripe.");
+                }
+            } else {
+                intent = await _paymentService.CreatePaymentIntentAsync(order);
+
+            }
             // 4. Salvăm ID-ul intenției în baza noastră (Opțional, dar recomandat pt debug)
             order.PaymentIntentId = intent.Id;
             await _context.SaveChangesAsync();

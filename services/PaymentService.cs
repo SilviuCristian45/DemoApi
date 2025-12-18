@@ -6,12 +6,17 @@ namespace DemoApi.Services;
 public class PaymentService
 {
     private readonly ILogger<PaymentService> _logger;
+    private readonly PaymentIntentService _service;
 
     public PaymentService(ILogger<PaymentService> logger)
     {
         _logger = logger;
+        _service = new PaymentIntentService();
     }
 
+    public async Task<PaymentIntent> GetAsync(string paymentId) {
+        return await _service.GetAsync(paymentId);
+    }
     public async Task<PaymentIntent> CreatePaymentIntentAsync(Order order)
     {
         var amountInCents = (long)(order.Price * 100);
@@ -32,13 +37,10 @@ public class PaymentService
                 Enabled = true,
             },
         };
-
-        // 3. Apelăm API-ul Stripe
-        var service = new PaymentIntentService();
         try 
         {
             // Asta face request-ul HTTP către Stripe
-            PaymentIntent intent = await service.CreateAsync(options);
+            PaymentIntent intent = await _service.CreateAsync(options);
             return intent;
         }
         catch (StripeException e)

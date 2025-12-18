@@ -6,3 +6,7 @@ update migrari
 
 dotnet ef database update
 
+.\stripe.exe login
+.\stripe.exe listen --forward-to localhost:5044/api/webhook
+
+

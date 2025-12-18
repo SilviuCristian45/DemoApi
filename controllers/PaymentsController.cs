@@ -33,20 +33,16 @@ public class PaymentsController: ControllerBase {
             return Unauthorized(ApiResponse<string>.Error("Utilizatorul nu a putut fi identificat."));
         }
 
-        string? userRoleAsString = User.FindFirstValue(ClaimTypes.Role);
-       
-        if (string.IsNullOrEmpty(userRoleAsString)) {
+        Role? userRole = User.Claims
+        .Where(c => c.Type == ClaimTypes.Role)
+        .Select(c => Enum.TryParse<Role>(c.Value, out var r) ? r : (Role?)null) // Încercăm parsarea
+        .FirstOrDefault(r => r != null);
+
+        if (userRole == null) {
             return Unauthorized(ApiResponse<string>.Error("Utilizatorul nu are rol setat"));
         }
-
-        Role userRole;
-        Boolean userRoleParseSuccess = Enum.TryParse<Role>(userRoleAsString, out userRole);
-
-        if (userRoleParseSuccess == false) {
-            return BadRequest($"Given role is : {userRoleAsString} . Roles need to be ${Role.ADMIN} or {Role.DEV} or {Role.USER} or {Role.SUPER_ADMIN} or {Role.GUEST} ");
-        }
-
-        ServiceResult<PaymentResponseDto> result = await _orderService.CreatePaymentIntentAsync(orderId, keycloakId, userRole);
+        
+        ServiceResult<PaymentResponseDto> result = await _orderService.CreatePaymentIntentAsync(orderId, keycloakId, userRole.Value);
         
         if (result.Success == false || result.Data == null)
             return BadRequest("A aparut o eroare la plata comenzii " + result.ErrorMessage);
