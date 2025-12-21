@@ -20,11 +20,13 @@ public class ProductsController : ControllerBase
 {
     private IProductService _productService;
     private readonly ILogger<ProductsController> _logger;
+    private readonly IImageService _imageService;
 
-    public ProductsController(IProductService productService, ILogger<ProductsController> logger)
+    public ProductsController(IProductService productService, ILogger<ProductsController> logger, IImageService imageService)
     {
         _productService = productService;
         _logger = logger;
+        _imageService = imageService;
     }
 
     private static readonly List<string> Products = new List<string> 
@@ -108,10 +110,13 @@ public class ProductsController : ControllerBase
             }
 
             var updateResult = await _productService.Update(index, new Models.Entities.UpdateProductDto {Image = fileName});
+            var publicUrl = await _imageService.uploadImage(file);
 
-            _logger.LogInformation("Imagine uploadată cu succes: {  } si url salvat in db", fullPath);
-
-            return Ok(ApiResponse<string>.Success(fileName));
+            if (publicUrl == null) {
+                _logger.LogError("Supabase image upload failed");
+                _logger.LogInformation("Imagine uploadată cu succes pe local : {  } si url salvat in db", fullPath);
+            }
+            return Ok(ApiResponse<string>.Success(publicUrl ?? fullPath));
 
         } catch(Exception e) {
             _logger.LogError("eroare upload imagine ");

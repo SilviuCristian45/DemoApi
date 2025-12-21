@@ -9,6 +9,7 @@ using System.Text.Json;       // <--- OBLIGATORIU
 using FluentValidation;
 using FluentValidation.AspNetCore;
 using Stripe;
+using Supabase;
 
 using Microsoft.AspNetCore.Mvc; // Pt ApiBehaviorOptions
 using DemoApi.Models; // Pt ApiResponse
@@ -109,6 +110,24 @@ builder.Services.AddScoped<IAuthService, AuthService>();
 builder.Services.AddScoped<IProductService, ProductsService>();
 builder.Services.AddScoped<PaymentService>();
 builder.Services.AddScoped<IOrderService, OrderService>();
+
+// 1. Configurare Client Supabase
+var url = builder.Configuration["Supabase:Url"] ?? "localhost";
+var key = builder.Configuration["Supabase:Key"] ?? "1234";
+
+var options = new SupabaseOptions
+{
+    AutoRefreshToken = true,
+    AutoConnectRealtime = false
+};
+
+// Singleton pentru că vrem o singură conexiune deschisă
+var supabaseClient = new Client(url, key, options);
+await supabaseClient.InitializeAsync(); // <--- Important: Inițializarea!
+
+builder.Services.AddSingleton(supabaseClient);
+
+builder.Services.AddScoped<IImageService, ImageService>();
 
 builder.Services.AddFluentValidationAutoValidation(); // Activează validarea automată înainte de Controller
 builder.Services.AddValidatorsFromAssemblyContaining<Program>();

@@ -9,4 +9,10 @@ dotnet ef database update
 .\stripe.exe login
 .\stripe.exe listen --forward-to localhost:5044/api/webhook
 
+docker run -d --name my-postgres -p 5432:5432 -e POSTGRES_PASSWORD=1234 -v my-postgres-data:/var/lib/postgresql postgres:18
 
+trebuie descarcat un program de la stripe 
+trebuie rulat
+
+.\stripe.exe login
+.\stripe.exe listen --forward-to localhost:5044/api/webhook 
