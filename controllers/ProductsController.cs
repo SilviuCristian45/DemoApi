@@ -5,6 +5,7 @@ using DemoApi.Services;
 using DemoApi.Models;
 using DemoApi.Models.Entities;
 using System.Security.Claims; // <--- Nu uita asta!
+using Microsoft.Extensions.Caching.Memory;
 
 namespace DemoApi.Controllers;
 
@@ -21,12 +22,18 @@ public class ProductsController : ControllerBase
     private IProductService _productService;
     private readonly ILogger<ProductsController> _logger;
     private readonly IImageService _imageService;
+    private readonly IMemoryCache _cache;
 
-    public ProductsController(IProductService productService, ILogger<ProductsController> logger, IImageService imageService)
+    public ProductsController(
+        IProductService productService, 
+        ILogger<ProductsController> logger, 
+        IImageService imageService,
+        IMemoryCache cache)
     {
         _productService = productService;
         _logger = logger;
         _imageService = imageService;
+        _cache = cache;
     }
 
     private static readonly List<string> Products = new List<string> 
@@ -40,13 +47,40 @@ public class ProductsController : ControllerBase
     [HttpGet] // = @Get()
     public async Task<ActionResult<ApiResponse<PaginatedResponse<GetProductsResponse>>>> GetAll([FromQuery] PaginatedQueryDto paginatedQueryDto)
     {
-        var products = await _productService.GetAll(paginatedQueryDto);
-        var totalProducts = await _productService.Total(paginatedQueryDto);
+        var cacheProductsKey = $"get_products_${paginatedQueryDto.PageNumber}_${paginatedQueryDto.PageSize}_${paginatedQueryDto.Search}";
+        var totalProductsKey = $"total_${cacheProductsKey}";
+        if (!_cache.TryGetValue(cacheProductsKey, out List<GetProductsResponse> productsCache))
+        {
+            _logger.LogInformation("Citim din baza de date");
+            var products = await _productService.GetAll(paginatedQueryDto);
+            var totalProducts = await _productService.Total(paginatedQueryDto);
+
+            var cacheOptions = new MemoryCacheEntryOptions()
+                .SetAbsoluteExpiration(TimeSpan.FromMinutes(5)) // Expiră în 5 min
+                .SetSlidingExpiration(TimeSpan.FromMinutes(2)); // Sau dacă nu e accesat 2 min
+
+            _cache.Set(cacheProductsKey, products, cacheOptions);
+            _cache.Set(totalProductsKey, totalProducts, cacheOptions);
+
+            return Ok(ApiResponse<PaginatedResponse<GetProductsResponse>>.Success( 
+                new PaginatedResponse<GetProductsResponse>
+                    (totalProducts,
+                    (totalProducts>paginatedQueryDto.PageSize) ? totalProducts / paginatedQueryDto.PageSize : 1,
+                    products) ) );
+        }
+        else
+        {
+             _logger.LogWarning("Citesc din Cache (RAM)..."); // Pt debug
+        }
+
+        _cache.TryGetValue(totalProductsKey, out int totalProductsCache);
+        
         return Ok(ApiResponse<PaginatedResponse<GetProductsResponse>>.Success( 
-            new PaginatedResponse<GetProductsResponse>
-                (totalProducts,
-                (totalProducts>paginatedQueryDto.PageSize) ? totalProducts / paginatedQueryDto.PageSize : 1,
-                products) ) );
+                new PaginatedResponse<GetProductsResponse>
+                    (totalProductsCache,
+                    (totalProductsCache>paginatedQueryDto.PageSize) ? totalProductsCache / paginatedQueryDto.PageSize : 1,
+                    productsCache ?? new List<GetProductsResponse>()) ) );
+        
     }
 
     // 4. GET: api/products/{index}
@@ -71,6 +105,7 @@ public class ProductsController : ControllerBase
     public async Task<ActionResult<ApiResponse<string>>> Create([FromBody] CreateProductDto newProduct) 
     {
         var result = await _productService.Create(new Models.Entities.Product { Name = newProduct.Name, Price = newProduct.Price, CategoryId = newProduct.CategoryId });
+      
         return Ok(ApiResponse<string>.Success(newProduct.Name, result.Message));
     }
 

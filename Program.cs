@@ -103,6 +103,7 @@ builder.Services.AddCors(options =>
     });
 });
 
+builder.Services.AddMemoryCache();
 builder.Services.AddSignalR();
 builder.Services.AddAuthorization();
 builder.Services.AddControllers();
