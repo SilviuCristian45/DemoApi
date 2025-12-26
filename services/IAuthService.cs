@@ -6,4 +6,5 @@ namespace DemoApi.Services;
 public interface IAuthService
 {
     Task<ApiResponse<LoginResponse>> LoginAsync(LoginRequest request);
+    Task<ServiceResult<string>> RegisterAsync(RegisterRequest request);
 }

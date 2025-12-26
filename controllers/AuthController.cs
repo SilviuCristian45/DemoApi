@@ -1,4 +1,6 @@
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Authorization;
+
 using DemoApi.Models; // Asigură-te că faci using la DTO
 using DemoApi.Services;
 using DemoApi.Utils;
@@ -31,5 +33,15 @@ public class AuthController : ControllerBase
             return BadRequest(result);
         }
        return Ok(result);
+    }
+
+    [HttpPost("register")]
+    [Authorize(Roles = nameof(Role.ADMIN))]
+    public async Task<ActionResult<ApiResponse<string>>> Register([FromBody] RegisterRequest request) {
+        var result = await _authService.RegisterAsync(request);
+        if (!result.Success) {
+            return BadRequest( ApiResponse<string>.Error(result.ErrorMessage ?? ""));
+        }
+        return Ok(ApiResponse<string>.Success(result.Data ?? ""));
     }
 }

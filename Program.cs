@@ -11,6 +11,7 @@ using FluentValidation.AspNetCore;
 using Stripe;
 using Supabase;
 
+
 using Microsoft.AspNetCore.Mvc; // Pt ApiBehaviorOptions
 using DemoApi.Models; // Pt ApiResponse
 using DemoApi.Hubs;
