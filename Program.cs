@@ -194,6 +194,8 @@ if (app.Environment.IsDevelopment())
 }
 
 app.MapHub<NotificationsHub>("/hubs/notifications"); // Asta va fi adresa ws://localhost:port/hubs/notifications
+// Adaugă linia asta:
+app.UseMiddleware<DemoApi.Utils.GlobalExceptionMiddleware>();
 app.UseStaticFiles(); // <--- Asta face folderul wwwroot public
 
 using (var scope = app.Services.CreateScope())

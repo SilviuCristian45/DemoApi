@@ -5,6 +5,7 @@ using FS.Keycloak.RestApiClient.Authentication.ClientFactory;
 using FS.Keycloak.RestApiClient.Authentication.Flow;
 using FS.Keycloak.RestApiClient.ClientFactory;
 using FS.Keycloak.RestApiClient.Model;
+using Microsoft.Extensions.Caching.Memory;
 
 namespace DemoApi.Services;
 
@@ -12,9 +13,17 @@ public class AuthService : IAuthService
 {
     private readonly HttpClient _httpClient;
     private readonly IConfiguration _configuration;
+    
+    private readonly ClientCredentialsFlow _authFlow;
+
+    private readonly string _targetRealm;
+
+    private readonly IMemoryCache _cache;
+
+    private readonly MemoryCacheEntryOptions _cacheOptions;
 
     // Injectăm dependențele exact ca înainte, dar acum în Service
-    public AuthService(IConfiguration configuration, IWebHostEnvironment env)
+    public AuthService(IConfiguration configuration, IWebHostEnvironment env, IMemoryCache cache)
     {
         _configuration = configuration;
 
@@ -22,22 +31,80 @@ public class AuthService : IAuthService
         var handler = new HttpClientHandler();
         if (env.IsDevelopment())
         {
-            handler.ServerCertificateCustomValidationCallback = 
+            handler.ServerCertificateCustomValidationCallback =
                 HttpClientHandler.DangerousAcceptAnyServerCertificateValidator;
         }
         _httpClient = new HttpClient(handler);
 
+        _authFlow = new ClientCredentialsFlow
+        {
+            KeycloakUrl = _configuration["Keycloak:Url"] ?? "test",  // fără / la final
+            Realm = _configuration["Keycloak:Realm"] ?? "no_realm",                                 // realm-ul în care e client-ul admin
+            ClientId = _configuration["Keycloak:ClientId"] ?? "clientid",                    // client-ul creat mai sus
+            ClientSecret = _configuration["Keycloak:ClientSecret"] ?? "secret-discret"
+        };
+
+        _targetRealm = _configuration["Keycloak:Realm"] ?? "no_realm";  // ex: "myapp"
+        _cache = cache;
+
+        _cacheOptions = new MemoryCacheEntryOptions()
+                .SetAbsoluteExpiration(TimeSpan.FromMinutes(300)) // Expiră în 5 min
+                .SetSlidingExpiration(TimeSpan.FromMinutes(300)); // Sau dacă nu e accesat 2 min
     }
 
-    public async Task<ServiceResult<string>> RegisterAsync(RegisterRequest request) {
-        try {
-            await CreateUserInKeycloakAsync(request);
-            return ServiceResult<string>.Ok("Utilizator creat cu succes");
-        } catch (Exception e) {
+    public async Task<ServiceResult<string>> RegisterAsync(RegisterRequest request)
+    {
+        try
+        {
+            return await CreateUserInKeycloakAsync(request);
+        }
+        catch (Exception e)
+        {
             Console.WriteLine(e);
             return ServiceResult<string>.Fail(e.Message.ToString() ?? "ceva");
         }
+    }
 
+    public async Task<PaginatedResponse<UserResponse>> GetAllUsers(PaginatedQueryDto paginatedQueryDto) {
+        using var httpClient = AuthenticationHttpClientFactory.Create(_authFlow);
+        // Inițializăm API-ul pentru Users
+        using var usersApi = ApiClientFactory.Create<UsersApi>(httpClient);
+        using var usersRolesApi = ApiClientFactory.Create<RoleMapperApi>(httpClient);
+
+        string cacheUsersKey = $"cache_users_${paginatedQueryDto.PageNumber}_${paginatedQueryDto.PageSize}_${paginatedQueryDto.Search}";
+        string totalCacheUsersKey = $"total_${cacheUsersKey}";
+
+        List<UserRepresentation> users = new List<UserRepresentation>();
+        int total = 0;
+
+        if (!_cache.TryGetValue(cacheUsersKey, out users) && !_cache.TryGetValue(totalCacheUsersKey, out total)) {
+            users = await usersApi.GetUsersAsync(_targetRealm, first: paginatedQueryDto.PageNumber, max: paginatedQueryDto.PageSize, search: paginatedQueryDto.Search);
+            total = await usersApi.GetUsersCountAsync(_targetRealm, search: paginatedQueryDto.Search);
+
+            foreach(var user in users) {
+                var mappings = await usersRolesApi.GetUsersRoleMappingsByUserIdAsync(_targetRealm, user.Id);
+                user.RealmRoles = mappings.RealmMappings.Select(r => r.Name).Where(r => Role.TryParse(r, out Role role)).ToList();
+            };
+            
+            _cache.Set(cacheUsersKey, users, _cacheOptions);
+            _cache.Set(totalCacheUsersKey, total, _cacheOptions);
+
+            Console.WriteLine("citim useri  din keycloak");
+        } else {
+            Console.WriteLine("citim useri din RAM");
+        }
+        
+        return new PaginatedResponse<UserResponse>(
+            total, 
+            users.Select(
+                user => new UserResponse {
+                    Id = user.Id,
+                    Email = user.Email,
+                    Username = user.Username,
+                    Roles = user.RealmRoles,
+                }
+            ).ToList() 
+        );
     }
 
     public async Task<ApiResponse<LoginResponse>> LoginAsync(LoginRequest request)
@@ -67,7 +134,7 @@ public class AuthService : IAuthService
 
         // 2. Gestionare Succes
         var tokenData = await response.Content.ReadFromJsonAsync<LoginResponse>();
-        
+
         if (tokenData == null)
         {
             return ApiResponse<LoginResponse>.Error("Răspuns invalid de la server.");
@@ -76,24 +143,28 @@ public class AuthService : IAuthService
         return ApiResponse<LoginResponse>.Success(tokenData);
     }
 
-    public async Task CreateUserInKeycloakAsync(RegisterRequest request)
+    public async Task<ServiceResult<string>> CreateUserInKeycloakAsync(RegisterRequest request)
     {
         // Configurația pentru autentificare admin (client credentials flow)
-        var authFlow = new ClientCredentialsFlow
-        {
-            KeycloakUrl = _configuration["Keycloak:Url"] ?? "test",  // fără / la final
-            Realm = _configuration["Keycloak:Realm"] ?? "no_realm",                                 // realm-ul în care e client-ul admin
-            ClientId = _configuration["Keycloak:ClientId"] ?? "clientid",                    // client-ul creat mai sus
-            ClientSecret = _configuration["Keycloak:ClientSecret"] ?? "secret-discret"
-        };
+        
 
         // Creăm HttpClient-ul autentificat
-        using var httpClient = AuthenticationHttpClientFactory.Create(authFlow);
+        using var httpClient = AuthenticationHttpClientFactory.Create(_authFlow);
 
         // Inițializăm API-ul pentru Users
         using var usersApi = ApiClientFactory.Create<UsersApi>(httpClient);
         using var rolesApi = ApiClientFactory.Create<RolesApi>(httpClient);
         using var userRolesApi = ApiClientFactory.Create<RoleMapperApi>(httpClient);
+
+        // Realm-ul în care vrei să creezi utilizatorul (poate fi diferit de master!)
+        
+
+        var allRoles = await rolesApi.GetRolesAsync(_targetRealm);
+        var adminRole = allRoles.FirstOrDefault(r => r.Name == request.Role); // sau "admin"
+
+        if (adminRole == null) {
+            return ServiceResult<string>.Fail($"Rolul  {request.Role} nu este setat");
+        }
 
         // Datele utilizatorului nou
         var newUser = new UserRepresentation
@@ -118,10 +189,7 @@ public class AuthService : IAuthService
             }
         };
 
-        // Realm-ul în care vrei să creezi utilizatorul (poate fi diferit de master!)
-        string targetRealm = "myrealm";  // ex: "myapp"
-
-        var createResponse = await usersApi.PostUsersWithHttpInfoAsync(targetRealm, newUser);
+        var createResponse = await usersApi.PostUsersWithHttpInfoAsync(_targetRealm, newUser);
 
         if (createResponse.StatusCode != System.Net.HttpStatusCode.Created)
         {
@@ -142,32 +210,28 @@ public class AuthService : IAuthService
 
         Console.WriteLine($"User ID extras: {userId}");
 
-        var allRoles = await rolesApi.GetRolesAsync(targetRealm);
-        var adminRole = allRoles.FirstOrDefault(r => r.Name == request.Role); // sau "admin"
-
         if (adminRole != null)
         {
-           var rolesToAdd = 
-           new List<RoleRepresentation>
-    {
-        new RoleRepresentation
-        {
-            Id = adminRole.Id,
-            Name = adminRole.Name,
-            Composite = adminRole.Composite,
-            ClientRole = adminRole.ClientRole,
-            ContainerId = adminRole.ContainerId
-        }
-    };
+            var rolesToAdd =
+                new List<RoleRepresentation>
+                {
+                    new RoleRepresentation
+                    {
+                        Id = adminRole.Id,
+                        Name = adminRole.Name,
+                        Composite = adminRole.Composite,
+                        ClientRole = adminRole.ClientRole,
+                        ContainerId = adminRole.ContainerId
+                    }
+                };
 
-    // 2. Apelăm metoda corectă. 
-    // NOTA: Verifică numele metodei. De obicei este UsersIdRoleMappingsRealmPostAsync
-    // Parametrii sunt: realm, userId, List<RoleRepresentation>
-    await userRolesApi.PostUsersRoleMappingsRealmByUserIdAsync(targetRealm, userId, rolesToAdd);
-    
-    Console.WriteLine($"Rol '{adminRole.Name}' asignat cu succes utilizatorului {userId}");
-        }
+            await userRolesApi.PostUsersRoleMappingsRealmByUserIdAsync(_targetRealm, userId, rolesToAdd);
 
+            Console.WriteLine($"Rol '{adminRole.Name}' asignat cu succes utilizatorului {userId}");
+
+            return ServiceResult<string>.Ok("Utilizator creat cu success");
+        }
+        return ServiceResult<string>.Fail("Esec la creare utilizator");
     }
 
     private async Task<string> GetAdminToken()
@@ -175,7 +239,7 @@ public class AuthService : IAuthService
         var username = _configuration["Keycloak:Admin"] ?? "";
         var password = _configuration["Keycloak:AdminPassword"] ?? "";
         var client = new HttpClient();
-        var tokenRequest = await LoginAsync(new LoginRequest(username, password) );
+        var tokenRequest = await LoginAsync(new LoginRequest(username, password));
         var token = tokenRequest.Data;
         return token?.AccessToken ?? "";
     }

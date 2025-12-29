@@ -65,7 +65,6 @@ public class ProductsController : ControllerBase
             return Ok(ApiResponse<PaginatedResponse<GetProductsResponse>>.Success( 
                 new PaginatedResponse<GetProductsResponse>
                     (totalProducts,
-                    (totalProducts>paginatedQueryDto.PageSize) ? totalProducts / paginatedQueryDto.PageSize : 1,
                     products) ) );
         }
         else
@@ -78,7 +77,6 @@ public class ProductsController : ControllerBase
         return Ok(ApiResponse<PaginatedResponse<GetProductsResponse>>.Success( 
                 new PaginatedResponse<GetProductsResponse>
                     (totalProductsCache,
-                    (totalProductsCache>paginatedQueryDto.PageSize) ? totalProductsCache / paginatedQueryDto.PageSize : 1,
                     productsCache ?? new List<GetProductsResponse>()) ) );
         
     }

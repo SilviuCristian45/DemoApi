@@ -44,4 +44,11 @@ public class AuthController : ControllerBase
         }
         return Ok(ApiResponse<string>.Success(result.Data ?? ""));
     }
+
+    [HttpGet("users")]
+    [Authorize(Roles = nameof(Role.ADMIN))]
+    public async Task<ActionResult<ApiResponse<PaginatedResponse<UserResponse>>>> GetAllUsers([FromQuery] PaginatedQueryDto paginatedQueryDto) {
+        var users = await _authService.GetAllUsers(paginatedQueryDto);
+        return Ok(users);
+    }
 }

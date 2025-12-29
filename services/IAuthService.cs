@@ -7,4 +7,7 @@ public interface IAuthService
 {
     Task<ApiResponse<LoginResponse>> LoginAsync(LoginRequest request);
     Task<ServiceResult<string>> RegisterAsync(RegisterRequest request);
+
+    Task<PaginatedResponse<UserResponse>> GetAllUsers(PaginatedQueryDto paginatedQueryDto);
+    
 }

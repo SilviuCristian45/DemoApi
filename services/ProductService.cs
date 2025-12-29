@@ -136,6 +136,7 @@ class ProductsService: IProductService
             await transaction.CommitAsync();
             return true;
         } catch(Exception ex) {
+            await transaction.RollbackAsync();
             _logger.LogError(ex, ex.ToString());
             return false;
         }
