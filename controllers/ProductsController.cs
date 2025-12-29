@@ -189,7 +189,6 @@ public class ProductsController : ControllerBase
         if (!result.Success) {
             return BadRequest(ApiResponse<List<OrderResponse>>.Error(result.ErrorMessage ?? "eroare interna necunoscuta"));
         }
-        List<OrderResponse> data = result.Data ?? new List<OrderResponse>();
-        return ApiResponse<List<OrderResponse>>.Success(data);
+        return ApiResponse<List<OrderResponse>>.Success(result.Data ?? new List<OrderResponse>());
     }
 }
