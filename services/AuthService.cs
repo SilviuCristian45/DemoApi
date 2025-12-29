@@ -77,14 +77,32 @@ public class AuthService : IAuthService
         List<UserRepresentation> users = new List<UserRepresentation>();
         int total = 0;
 
-        if (!_cache.TryGetValue(cacheUsersKey, out users) && !_cache.TryGetValue(totalCacheUsersKey, out total)) {
+        Boolean areUsersInCache = _cache.TryGetValue(cacheUsersKey, out users);
+        Boolean isTotalUsersInCache = _cache.TryGetValue(totalCacheUsersKey, out total);
+
+        if (!areUsersInCache && !isTotalUsersInCache) {
             users = await usersApi.GetUsersAsync(_targetRealm, first: paginatedQueryDto.PageNumber, max: paginatedQueryDto.PageSize, search: paginatedQueryDto.Search);
             total = await usersApi.GetUsersCountAsync(_targetRealm, search: paginatedQueryDto.Search);
 
-            foreach(var user in users) {
+            var tasks = users.Select(async user => 
+            {
                 var mappings = await usersRolesApi.GetUsersRoleMappingsByUserIdAsync(_targetRealm, user.Id);
-                user.RealmRoles = mappings.RealmMappings.Select(r => r.Name).Where(r => Role.TryParse(r, out Role role)).ToList();
-            };
+                
+                if (mappings?.RealmMappings != null)
+                {
+                    // Logica ta de filtrare roluri
+                    user.RealmRoles = mappings.RealmMappings
+                        .Select(r => r.Name)
+                        .Where(r => Enum.TryParse(typeof(Role), r, out _)) // Filtrăm doar rolurile valide
+                        .ToList();
+                }
+                else
+                {
+                    user.RealmRoles = new List<string>();
+                }
+            });
+
+            await Task.WhenAll(tasks);
             
             _cache.Set(cacheUsersKey, users, _cacheOptions);
             _cache.Set(totalCacheUsersKey, total, _cacheOptions);
