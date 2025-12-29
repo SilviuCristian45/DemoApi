@@ -1,6 +1,7 @@
 using DemoApi.Models.Entities; // Pt LoginRequest, LoginResponse, ApiResponse
 using DemoApi.Utils;
 using DemoApi.Models;
+using DemoApi.Data;
 
 namespace DemoApi.Services;
 
@@ -19,4 +20,6 @@ public interface IProductService
     Task<int> Total(PaginatedQueryDto paginatedQueryDto);
 
     Task<Boolean> PlaceOrder(PlaceOrderRequest placeOrderRequest, string userId);
+
+    Task<ServiceResult<List<OrderResponse>>> GetOrders(string userId);
 }

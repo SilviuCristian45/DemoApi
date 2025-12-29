@@ -166,6 +166,7 @@ builder.Services.Configure<ApiBehaviorOptions>(options =>
 
 // ---> ADAUGĂ ACESTE DOUĂ LINII <---
 builder.Services.AddEndpointsApiExplorer();
+builder.Services.AddAutoMapper(typeof(Program));
 
 builder.Services.AddSwaggerGen(c =>
 {
@@ -215,6 +216,7 @@ using (var scope = app.Services.CreateScope())
         Console.WriteLine($"A apărut o eroare la migrare: {ex.Message}");
     }
 }
+
 
 app.UseCors("AllowAll");
 app.UseHttpsRedirection();

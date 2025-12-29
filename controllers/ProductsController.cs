@@ -6,6 +6,7 @@ using DemoApi.Models;
 using DemoApi.Models.Entities;
 using System.Security.Claims; // <--- Nu uita asta!
 using Microsoft.Extensions.Caching.Memory;
+using DemoApi.Data;
 
 namespace DemoApi.Controllers;
 
@@ -174,5 +175,21 @@ public class ProductsController : ControllerBase
             return BadRequest(ApiResponse<string>.Error("Stoc epuizat produs sau o eroare interna a serverului"));
         }
         return (orderPlacedSuccess) ? Ok(ApiResponse<string>.Success("place order")) : BadRequest(ApiResponse<string>.Error("comanda nu s-a putut efectua"));
+    }
+
+    [HttpGet("orders")]
+    [Authorize]
+    public async Task<ActionResult<ApiResponse<List<OrderResponse>>>> GetOrders() {
+        var keycloakId = User.FindFirstValue(ClaimTypes.NameIdentifier);    
+        if (string.IsNullOrEmpty(keycloakId))
+        {
+            return Unauthorized(ApiResponse<string>.Error("Utilizatorul nu a putut fi identificat."));
+        }
+        var result = await _productService.GetOrders(keycloakId);
+        if (!result.Success) {
+            return BadRequest(ApiResponse<List<OrderResponse>>.Error(result.ErrorMessage ?? "eroare interna necunoscuta"));
+        }
+        List<OrderResponse> data = result.Data ?? new List<OrderResponse>();
+        return ApiResponse<List<OrderResponse>>.Success(data);
     }
 }

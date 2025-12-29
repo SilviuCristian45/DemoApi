@@ -37,9 +37,9 @@ public class ApiResponse<T>
         };
     }
 
-     public static ApiResponse<T>? Error(string error)
+     public static ApiResponse<T?> Error(string error)
     {
-        return new ApiResponse<T> 
+        return new ApiResponse<T?> 
         { 
             Data = default(T),
             Type = ResponseType.Error, 

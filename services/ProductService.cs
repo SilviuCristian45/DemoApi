@@ -4,20 +4,24 @@ using DemoApi.Utils;
 using DemoApi.Models.Entities;
 using DemoApi.Data;
 using DemoApi.Models;
+using AutoMapper; // <--- Namespace-ul necesar
+using AutoMapper.QueryableExtensions; // <--- ASTA LIPSEȘTE
 
 using Microsoft.EntityFrameworkCore; // Pt ToListAsync
 
 class ProductsService: IProductService
 {
 
+    private readonly IMapper _mapper; // <--- Field-ul pentru mapper
     private readonly AppDbContext _context;
     private readonly ILogger<ProductsService> _logger;
 
     // Injectăm Baza de Date AICI, nu în Controller
-    public ProductsService(AppDbContext context, ILogger<ProductsService> logger)
+    public ProductsService(AppDbContext context, ILogger<ProductsService> logger, IMapper mapper)
     {
         _context = context;
         _logger  = logger;
+        _mapper = mapper;
     }
 
 
@@ -204,5 +208,13 @@ class ProductsService: IProductService
         }
         
     }
-    
+
+    public async Task<ServiceResult<List<OrderResponse>>> GetOrders(string userId) {
+        var orders = await _context.Orders
+            .Where( order => order.userId.Equals(userId) )
+            .OrderBy( order => order.CreatedAt)
+            .ProjectTo<OrderResponse>(_mapper.ConfigurationProvider) 
+         .ToListAsync();    
+        return ServiceResult<List<OrderResponse>>.Ok(orders);
+    }   
 }
