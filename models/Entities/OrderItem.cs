@@ -19,4 +19,9 @@ public class OrderItem
     [ForeignKey("OrderId")] // Leagă proprietatea de ID-ul de mai sus
     public Order? Order { get; set; }
 
+    [ForeignKey("ProductId")]
+    public Product? Product {get; set;}
+
+    public decimal? Price {get; set;}
+
 }

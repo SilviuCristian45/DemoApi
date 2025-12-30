@@ -142,14 +142,17 @@ public class ProductsController : ControllerBase
             if (deleteOldImageIfExisting == false) {
                 _logger.LogWarning("stergere imagine veche esuata - verificati logurile de mai sus");
             }
-
-            var updateResult = await _productService.Update(index, new Models.Entities.UpdateProductDto {Image = fileName});
             var publicUrl = await _imageService.uploadImage(file);
 
-            if (publicUrl == null) {
+             if (publicUrl == null) {
                 _logger.LogError("Supabase image upload failed");
                 _logger.LogInformation("Imagine uploadată cu succes pe local : {  } si url salvat in db", fullPath);
             }
+
+            var updateResult = await _productService.Update(index, new Models.Entities.UpdateProductDto {Image = publicUrl ?? fileName});
+           
+
+           
             return Ok(ApiResponse<string>.Success(publicUrl ?? fullPath));
 
         } catch(Exception e) {

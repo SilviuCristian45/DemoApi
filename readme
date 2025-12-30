@@ -2,6 +2,9 @@ generare migrari
 
 dotnet ef migrations add InitialCreate
 
+daca s-a facut o greseala
+ef migrations remove
+
 update migrari
 
 dotnet ef database update

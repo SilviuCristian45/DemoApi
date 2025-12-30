@@ -109,10 +109,12 @@ class ProductsService: IProductService
         using var transaction = await _context.Database.BeginTransactionAsync();
         try {
             decimal totalPrice = 0;
-            var newOrder = await _context.Orders.AddAsync(new Order() {
-                Price = 0,
-                userId = userId,
-            });
+            var newOrder = await _context.Orders.AddAsync(
+                new Order() {
+                    Price = 0,
+                    userId = userId,
+                }
+            );
             foreach (var item in placeOrderRequest.Items) {
                 Product? product = await this.GetProductById(item.ProductId);
                 if (product == null) {
@@ -133,6 +135,7 @@ class ProductsService: IProductService
                 newOrder.Entity.orderItems.Add(new OrderItem() {
                     ProductId = item.ProductId,
                     Quantity = item.Quantity,
+                    Price = product.Price,
                 });
             }
             newOrder.Entity.Price = totalPrice;
@@ -214,7 +217,7 @@ class ProductsService: IProductService
             .Where( order => order.userId.Equals(userId) )
             .OrderBy( order => order.CreatedAt)
             .ProjectTo<OrderResponse>(_mapper.ConfigurationProvider) 
-         .ToListAsync();    
+            .ToListAsync();   
         return ServiceResult<List<OrderResponse>>.Ok(orders);
     }   
 }
