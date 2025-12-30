@@ -107,6 +107,7 @@ class ProductsService: IProductService
     
     public async Task<Boolean> PlaceOrder(PlaceOrderRequest placeOrderRequest, string userId) {
         using var transaction = await _context.Database.BeginTransactionAsync();
+        var productsIds = placeOrderRequest.Items.Select(item => item.ProductId);
         try {
             decimal totalPrice = 0;
             var newOrder = await _context.Orders.AddAsync(
@@ -115,8 +116,10 @@ class ProductsService: IProductService
                     userId = userId,
                 }
             );
+            var products = await _context.Products.Where(p => productsIds.Contains(p.Id)).ToListAsync();
+            var productsMap = products.ToDictionary(p => p.Id);
             foreach (var item in placeOrderRequest.Items) {
-                Product? product = await this.GetProductById(item.ProductId);
+                productsMap.TryGetValue(item.ProductId, out Product? product);
                 if (product == null) {
                     _logger.LogWarning("Produsul cu {produsId} nu a fost gasit in db", item.ProductId);
                     return false;
