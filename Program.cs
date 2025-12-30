@@ -166,6 +166,7 @@ builder.Services.Configure<ApiBehaviorOptions>(options =>
 
 // ---> ADAUGĂ ACESTE DOUĂ LINII <---
 builder.Services.AddEndpointsApiExplorer();
+builder.Services.AddHostedService<OrderCleanupService>();
 builder.Services.AddAutoMapper(typeof(Program));
 
 builder.Services.AddSwaggerGen(c =>
