@@ -23,4 +23,6 @@ public class Order
 
     public string? PaymentIntentId { get; set; }
 
+    public string? Email { get; set; }
+
 }

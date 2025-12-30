@@ -168,12 +168,13 @@ public class ProductsController : ControllerBase
     public async Task<ActionResult<ApiResponse<string>>> PlaceOrder([FromBody] PlaceOrderRequest placeOrderRequest) 
     {
         var keycloakId = User.FindFirstValue(ClaimTypes.NameIdentifier);    
+        var email = User.FindFirstValue(ClaimTypes.Email) ?? "";   
         if (string.IsNullOrEmpty(keycloakId))
         {
             return Unauthorized(ApiResponse<string>.Error("Utilizatorul nu a putut fi identificat."));
         }
 
-        Boolean orderPlacedSuccess = await _productService.PlaceOrder(placeOrderRequest, keycloakId);
+        Boolean orderPlacedSuccess = await _productService.PlaceOrder(placeOrderRequest, keycloakId, email);
         if (orderPlacedSuccess == false) {
             return BadRequest(ApiResponse<string>.Error("Stoc epuizat produs sau o eroare interna a serverului"));
         }
@@ -183,7 +184,7 @@ public class ProductsController : ControllerBase
     [HttpGet("orders")]
     [Authorize]
     public async Task<ActionResult<ApiResponse<List<OrderResponse>>>> GetOrders() {
-        var keycloakId = User.FindFirstValue(ClaimTypes.NameIdentifier);    
+        var keycloakId = User.FindFirstValue(ClaimTypes.NameIdentifier); 
         if (string.IsNullOrEmpty(keycloakId))
         {
             return Unauthorized(ApiResponse<string>.Error("Utilizatorul nu a putut fi identificat."));

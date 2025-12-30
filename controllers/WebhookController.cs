@@ -50,8 +50,18 @@ public class WebhookController : ControllerBase
                 
                 _logger.LogInformation($"Webhook primit: Plată reușită pentru {paymentIntent?.Id}");
                 // 3. Actualizăm baza de date
-                await UpdateOrderToPaid(paymentIntent.Id);
-                await this.SendEmailTest(paymentIntent.Id);
+                using var scope = _scopeFactory.CreateScope();
+                var context = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+                var order = await context.Orders.Include(o => o.orderItems).ThenInclude(p => p.Product).FirstOrDefaultAsync(o => o.PaymentIntentId == paymentIntent.Id);
+                if (order == null) {
+                    _logger.LogError("no order with payment id : " + paymentIntent.Id);
+                    return BadRequest();
+                }
+                await UpdateOrderToPaid(order);
+                await context.SaveChangesAsync();
+                 _logger.LogInformation($"Comanda {order.Id} a fost actualizată la statusul PAID.");
+                await this.SendEmailTest(order);
+                
                 
             }
             // Putem gestiona și 'payment_intent.payment_failed' dacă vrem
@@ -70,26 +80,18 @@ public class WebhookController : ControllerBase
         }
     }
 
-    private async Task SendEmailTest(string paymentIntentId)
+    private async Task SendEmailTest(Order order)
     {
-
-        using var scope = _scopeFactory.CreateScope();
-        var context = scope.ServiceProvider.GetRequiredService<AppDbContext>();
-
-        var order = await context.Orders
-        .Include(o => o.orderItems)
-        .FirstOrDefaultAsync(o => o.PaymentIntentId == paymentIntentId);
-
         if (order == null)
         {
-            _logger.LogWarning("nu a fost gasita comanda cu payment Id " + paymentIntentId);
+            _logger.LogWarning("nu a fost gasita comanda cu payment Id de mai sus");
             return;
         }
 
         // 1. Crearea Mesajului (MimeKit)
         var email = new MimeMessage();
         email.From.Add(new MailboxAddress("Nume Expeditor", "expeditor@demo.com"));
-        email.To.Add(new MailboxAddress("Client", "silviudinca412@gmail.com"));
+        email.To.Add(new MailboxAddress("Client", order.Email ?? "silviudinca412@gmail.com"));
         email.Subject = "Test SMTP din C#";
 
         var builder = new BodyBuilder();
@@ -97,7 +99,7 @@ public class WebhookController : ControllerBase
 
         foreach (var item in order.orderItems)
         {
-            builder.HtmlBody += "<p>" + item.ProductId.ToString() + " " + item.Quantity.ToString() + "</p>"; 
+            builder.HtmlBody += "<p>" + item.Product?.Name.ToString() + " " + item.Quantity.ToString() + "</p>"; 
         }
 
         email.Body = builder.ToMessageBody();
@@ -132,27 +134,20 @@ public class WebhookController : ControllerBase
     }
 
     // Metodă privată pentru update DB
-    private async Task UpdateOrderToPaid(string paymentIntentId)
+    private async Task UpdateOrderToPaid(Order order)
     {
         // Fiind într-un proces async declanșat extern, e safer să creăm un scope nou
-        using var scope = _scopeFactory.CreateScope();
-        var context = scope.ServiceProvider.GetRequiredService<AppDbContext>();
-
-        var order = await context.Orders.FirstOrDefaultAsync(o => o.PaymentIntentId == paymentIntentId);
-
         if (order != null)
         {
             // Verificăm să nu fie deja plătită (idempotency)
             if (order.Status != OrderStatus.Accepted) // sau Paid
             {
                 order.Status = OrderStatus.Accepted;
-                await context.SaveChangesAsync();
-                _logger.LogInformation($"Comanda {order.Id} a fost actualizată la statusul PAID.");
             }
         }
         else
         {
-            _logger.LogError($"Comanda pentru intent-ul {paymentIntentId} nu a fost găsită în DB!");
+            _logger.LogError($"Comanda pentru intent-ul {order.PaymentIntentId} nu a fost găsită în DB!");
         }
     }
 }

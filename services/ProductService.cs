@@ -105,7 +105,7 @@ class ProductsService: IProductService
         return await _context.Products.CountAsync(p => p.Name.Contains(paginatedQueryDto.Search) || (p.Category != null ? p.Category.Name : "Fara categorie").Contains(paginatedQueryDto.Search));
     }
     
-    public async Task<Boolean> PlaceOrder(PlaceOrderRequest placeOrderRequest, string userId) {
+    public async Task<Boolean> PlaceOrder(PlaceOrderRequest placeOrderRequest, string userId, string email) {
         using var transaction = await _context.Database.BeginTransactionAsync();
         var productsIds = placeOrderRequest.Items.Select(item => item.ProductId);
         try {
@@ -114,6 +114,7 @@ class ProductsService: IProductService
                 new Order() {
                     Price = 0,
                     userId = userId,
+                    Email = email
                 }
             );
             var products = await _context.Products.Where(p => productsIds.Contains(p.Id)).ToListAsync();

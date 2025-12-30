@@ -22,7 +22,7 @@ public class OrderCleanupService : BackgroundService
     {
         _logger.LogInformation("⏳ Order Cleanup Service a pornit.");
 
-        using var timer = new PeriodicTimer(TimeSpan.FromSeconds(30));
+        using var timer = new PeriodicTimer(TimeSpan.FromMinutes(30));
 
         while (await timer.WaitForNextTickAsync(stoppingToken))
         {
