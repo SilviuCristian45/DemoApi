@@ -3,6 +3,7 @@ using System;
 using DemoApi.Data;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 
@@ -11,9 +12,11 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace DemoApi.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    partial class AppDbContextModelSnapshot : ModelSnapshot
+    [Migration("20251231104309_AddAddressAndPaymentTypeToOrders")]
+    partial class AddAddressAndPaymentTypeToOrders
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -49,8 +52,7 @@ namespace DemoApi.Migrations
 
                     b.HasKey("Id");
 
-                    b.HasIndex("OrderId")
-                        .IsUnique();
+                    b.HasIndex("OrderId");
 
                     b.ToTable("Addresses");
                 });
@@ -80,6 +82,9 @@ namespace DemoApi.Migrations
 
                     NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
 
+                    b.Property<int?>("AddressId")
+                        .HasColumnType("integer");
+
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("timestamp without time zone");
 
@@ -102,6 +107,8 @@ namespace DemoApi.Migrations
                         .HasColumnType("text");
 
                     b.HasKey("Id");
+
+                    b.HasIndex("AddressId");
 
                     b.ToTable("Orders");
                 });
@@ -174,10 +181,19 @@ namespace DemoApi.Migrations
             modelBuilder.Entity("DemoApi.Models.Entities.Address", b =>
                 {
                     b.HasOne("DemoApi.Models.Entities.Order", "Order")
-                        .WithOne("Address")
-                        .HasForeignKey("DemoApi.Models.Entities.Address", "OrderId");
+                        .WithMany()
+                        .HasForeignKey("OrderId");
 
                     b.Navigation("Order");
+                });
+
+            modelBuilder.Entity("DemoApi.Models.Entities.Order", b =>
+                {
+                    b.HasOne("DemoApi.Models.Entities.Address", "Address")
+                        .WithMany()
+                        .HasForeignKey("AddressId");
+
+                    b.Navigation("Address");
                 });
 
             modelBuilder.Entity("DemoApi.Models.Entities.OrderItem", b =>
@@ -213,8 +229,6 @@ namespace DemoApi.Migrations
 
             modelBuilder.Entity("DemoApi.Models.Entities.Order", b =>
                 {
-                    b.Navigation("Address");
-
                     b.Navigation("orderItems");
                 });
 #pragma warning restore 612, 618

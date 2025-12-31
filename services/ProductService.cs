@@ -114,9 +114,10 @@ class ProductsService: IProductService
                 new Order() {
                     Price = 0,
                     userId = userId,
-                    Email = email
+                    Email = email,
                 }
             );
+
             var products = await _context.Products.Where(p => productsIds.Contains(p.Id)).ToListAsync();
             var productsMap = products.ToDictionary(p => p.Id);
             foreach (var item in placeOrderRequest.Items) {
@@ -143,6 +144,13 @@ class ProductsService: IProductService
                 });
             }
             newOrder.Entity.Price = totalPrice;
+            newOrder.Entity.Address = new Address() {
+                City = placeOrderRequest.Address.City,
+                Street = placeOrderRequest.Address.Street,
+                StreetNumber = placeOrderRequest.Address.StreetNumber,
+                ZipCode = placeOrderRequest.Address.ZipCode,
+            };
+
             await _context.SaveChangesAsync();
             await transaction.CommitAsync();
             return true;
