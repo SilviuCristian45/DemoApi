@@ -4,22 +4,60 @@ using Stripe;
 using DemoApi.Data;
 using DemoApi.Models;
 using DemoApi.Utils;
+using AutoMapper; 
+using Microsoft.EntityFrameworkCore; // Pt ToListAsync
+using AutoMapper.QueryableExtensions; // <--- ASTA LIPSEȘTE
 
 public class OrderService:  IOrderService {
     private readonly AppDbContext _context;
     private readonly ILogger<OrderService> _logger;
     private readonly PaymentService _paymentService;
 
+    private readonly IMapper _mapper;
+
     // Injectăm Baza de Date AICI, nu în Controller
     public OrderService(
         AppDbContext context, 
         ILogger<OrderService> logger,
-        PaymentService paymentService
+        PaymentService paymentService,
+        IMapper mapper
     )
     {
         _context = context;
         _logger  = logger;
         _paymentService = paymentService;
+        _mapper = mapper;
+    }
+
+    public async Task<ServiceResult<List<OrderResponse>>> GetAll(PaginatedQueryDto paginatedQueryDto) {
+        try {
+            var orders = await _context.Orders
+                .Where(p => p.Address.City.Contains(paginatedQueryDto.Search))
+                .Skip(paginatedQueryDto.PageNumber)
+                .Take(paginatedQueryDto.PageSize)
+                .OrderByDescending(p => p.Id)
+                .ProjectTo<OrderResponse>(_mapper.ConfigurationProvider)
+                .ToListAsync();
+
+            return ServiceResult<List<OrderResponse>>.Ok(orders);
+        } catch(Exception ex) {
+            _logger.LogError(ex, ex.ToString());
+            return ServiceResult<List<OrderResponse>>.Fail(ex.Message);
+        }
+    }
+
+    public async Task<int> Total(PaginatedQueryDto paginatedQueryDto) {
+        try {
+            var total = await _context.Orders
+                .Where(p => p.Address.City.Contains(paginatedQueryDto.Search))
+                .CountAsync();
+
+
+            return total;
+        } catch(Exception ex) {
+            _logger.LogError(ex, ex.ToString());
+            return 0;
+        }
     }
 
     public async Task<ServiceResult<PaymentResponseDto>> CreatePaymentIntentAsync(int orderId, string userId, Role userRole)
