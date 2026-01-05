@@ -69,6 +69,39 @@ public class OrderService : IOrderService
             
             if (updateOrderDto.Items != null && updateOrderDto.Items.Count > 0)
             {
+                //pt order itemsi care nu mai apar in noua lista de comenzi 
+                var orderItemsRemoved = order.orderItems.Where(p => updateOrderDto.Items.Select(p => p.ProductId).Contains(p.Id) == false);
+                var orderItemsAdded = updateOrderDto.Items.Where(p => order.orderItems.Select(p => p.ProductId).Contains(p.ProductId) == false);
+
+                var orderItemsRemovedIds = orderItemsRemoved.Select(p2 => p2.ProductId);
+                var productsToBeremoved = await _context.Products.Where(p => orderItemsRemovedIds.Contains(p.Id)).ToListAsync();
+                var productsToBeremovedDictionary = productsToBeremoved.ToDictionary(p => p.Id);
+                
+                var orderItemsAddedIds = orderItemsAdded.Select(p => p.ProductId);
+                var productsToBeAdded = await _context.Products.Where(p => orderItemsAddedIds.Contains(p.Id)).ToListAsync();
+                var productsToBeAddedDictionary = productsToBeAdded.ToDictionary(p => p.Id);
+
+
+                //sunt practic scoase din comanda, trebuie crescut stocul
+                foreach (var item in orderItemsRemoved)
+                {
+                    productsToBeremovedDictionary.TryGetValue(item.ProductId, out DemoApi.Models.Entities.Product? product);
+                    if (product != null) {
+                        product.Stock += item.Quantity;
+                    }
+                }
+
+                //adaugate in comanda, le scade stocul
+                foreach (var item in orderItemsAdded)
+                {
+                    productsToBeAddedDictionary.TryGetValue(item.ProductId, out DemoApi.Models.Entities.Product? product);
+                    if (product != null) {
+                        product.Stock -= item.Quantity;
+                    }
+                }
+                
+                await _context.SaveChangesAsync();
+
                 order.orderItems.Clear();
                 decimal totalPrice = 0;
                 foreach (var item in updateOrderDto.Items)
