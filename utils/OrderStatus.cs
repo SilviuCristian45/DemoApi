@@ -1,5 +1,5 @@
 namespace DemoApi.Utils;
 
 public enum OrderStatus {
-    Pending, Accepted, Rejected, Expired
+    Pending, Placed, Accepted, Rejected, Expired
 }

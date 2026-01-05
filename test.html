@@ -42,10 +42,18 @@
 
         // 1. Ascultăm mesajele venite de la Server
         connection.on("ReceiveMessage", (user, message) => {
+            console.log(JSON.stringify(message))
             const li = document.createElement("li");
             li.textContent = `${new Date().toLocaleTimeString()} - ${user}: ${message}`;
             document.getElementById("log").appendChild(li);
         });
+
+        connection.on("OrderPlaced", (message) => {
+            console.log(message)
+            const li = document.createElement("li");
+            li.textContent = `Order id : ${message.orderId}, status: ${message.status} si data: ${ new Date(message.date).toLocaleDateString('ro')}`;
+            document.getElementById("log").appendChild(li);
+        })
 
         // 2. Pornim conexiunea
         async function start() {

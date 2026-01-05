@@ -19,7 +19,7 @@ public interface IProductService
 
     Task<int> Total(PaginatedQueryDto paginatedQueryDto);
 
-    Task<Boolean> PlaceOrder(PlaceOrderRequest placeOrderRequest, string userId, string email);
+    Task<ServiceResult<string>> PlaceOrder(PlaceOrderRequest placeOrderRequest, string userId, string email);
 
     Task<ServiceResult<List<OrderResponse>>> GetOrders(string userId);
 }

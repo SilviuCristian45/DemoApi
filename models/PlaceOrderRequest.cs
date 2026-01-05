@@ -8,5 +8,6 @@ public record AddressRequest (
 public record PlaceOrderRequest (
     List<CartItem> Items,
     AddressRequest Address,    
-    string PhoneNumber
+    string PhoneNumber,
+    string PaymentType
 );

@@ -3,8 +3,8 @@ namespace DemoApi.Models;
 public class ServiceResult<T>
 {
     public bool Success { get; set; }
-    public T? Data { get; set; } // De ex: ID-ul comenzii
-    public string? ErrorMessage { get; set; }
+    public T Data { get; set; } // De ex: ID-ul comenzii
+    public string ErrorMessage { get; set; }
 
     // Constructor privat ca să forțăm folosirea metodelor statice de mai jos
     private ServiceResult() { }

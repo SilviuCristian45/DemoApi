@@ -6,7 +6,8 @@ using DemoApi.Data;
 using DemoApi.Models;
 using AutoMapper; // <--- Namespace-ul necesar
 using AutoMapper.QueryableExtensions; // <--- ASTA LIPSEȘTE
-
+using Microsoft.AspNetCore.SignalR; // <--- Nu uita namespace-ul
+using DemoApi.Hubs; // Unde ai definit NotificationsHub
 using Microsoft.EntityFrameworkCore; // Pt ToListAsync
 
 class ProductsService: IProductService
@@ -16,12 +17,20 @@ class ProductsService: IProductService
     private readonly AppDbContext _context;
     private readonly ILogger<ProductsService> _logger;
 
+    // 1. Definim câmpul pentru HubContext
+    private readonly IHubContext<NotificationsHub> _hubContext;
+
     // Injectăm Baza de Date AICI, nu în Controller
-    public ProductsService(AppDbContext context, ILogger<ProductsService> logger, IMapper mapper)
+    public ProductsService(
+        AppDbContext context, 
+        ILogger<ProductsService> logger, 
+        IHubContext<NotificationsHub> hubContext,
+        IMapper mapper)
     {
         _context = context;
         _logger  = logger;
         _mapper = mapper;
+        _hubContext = hubContext;
     }
 
 
@@ -105,30 +114,47 @@ class ProductsService: IProductService
         return await _context.Products.CountAsync(p => p.Name.Contains(paginatedQueryDto.Search) || (p.Category != null ? p.Category.Name : "Fara categorie").Contains(paginatedQueryDto.Search));
     }
     
-    public async Task<Boolean> PlaceOrder(PlaceOrderRequest placeOrderRequest, string userId, string email) {
+    public async Task<ServiceResult<string>> PlaceOrder(PlaceOrderRequest placeOrderRequest, string userId, string email) {
         using var transaction = await _context.Database.BeginTransactionAsync();
+        Boolean paymentTypeCorrect = Enum.TryParse(placeOrderRequest.PaymentType, out PaymentType paymentType);
+
+        if (!paymentTypeCorrect) {
+            string message = $"Payment must be {PaymentType.CARD.ToString() + " " + PaymentType.RAMBURS.ToString()}";
+            _logger.LogWarning(message);
+            return ServiceResult<string>.Fail(message);
+        }
+
         var productsIds = placeOrderRequest.Items.Select(item => item.ProductId);
         try {
             decimal totalPrice = 0;
+
             var newOrder = await _context.Orders.AddAsync(
                 new Order() {
                     Price = 0,
                     userId = userId,
                     Email = email,
+                    PaymentType = placeOrderRequest.PaymentType,
+                    PhoneNumber = placeOrderRequest.PhoneNumber,
                 }
             );
+
+            if (paymentType == PaymentType.RAMBURS) {
+                newOrder.Entity.Status = OrderStatus.Placed;
+            }
 
             var products = await _context.Products.Where(p => productsIds.Contains(p.Id)).ToListAsync();
             var productsMap = products.ToDictionary(p => p.Id);
             foreach (var item in placeOrderRequest.Items) {
                 productsMap.TryGetValue(item.ProductId, out Product? product);
                 if (product == null) {
-                    _logger.LogWarning("Produsul cu {produsId} nu a fost gasit in db", item.ProductId);
-                    return false;
+                    string message = "Produsul cu {produsId} nu a fost gasit in db " + item.ProductId.ToString();
+                    _logger.LogWarning(message);
+                    return ServiceResult<string>.Fail(message);
                 }
                 if (product.Stock < item.Quantity) {
-                    _logger.LogWarning("Produsul {productName} are stocul ${stoc} si s-au cerut ${quantity} bucati. Nu se poate efectua comanda", product.Name, product.Stock, item.Quantity);
-                    return false;
+                    string message = $"Produsul {product.Name} are stocul ${ product.Stock} si s-au cerut ${item.Quantity} bucati. Nu se poate efectua comanda";
+                    _logger.LogWarning(message);
+                    return ServiceResult<string>.Fail(message);
                 }
                 decimal itemCostOnePiece = product.Price;
                 decimal cost = item.Quantity * itemCostOnePiece;
@@ -153,11 +179,23 @@ class ProductsService: IProductService
 
             await _context.SaveChangesAsync();
             await transaction.CommitAsync();
-            return true;
+
+            var notificationData = new 
+            {
+                OrderId = newOrder.Entity.Id,
+                Total = newOrder.Entity.Price,
+                User = email,
+                Status = newOrder.Entity.Status.ToString(),
+                Date = DateTime.Now
+            }; 
+        
+            await _hubContext.Clients.All.SendAsync("OrderPlaced", notificationData);
+
+            return ServiceResult<string>.Ok("Comanda plasata cu succes");
         } catch(Exception ex) {
             await transaction.RollbackAsync();
             _logger.LogError(ex, ex.ToString());
-            return false;
+            return ServiceResult<string>.Fail(ex.ToString());
         }
     }
 

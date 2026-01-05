@@ -174,11 +174,12 @@ public class ProductsController : ControllerBase
             return Unauthorized(ApiResponse<string>.Error("Utilizatorul nu a putut fi identificat."));
         }
 
-        Boolean orderPlacedSuccess = await _productService.PlaceOrder(placeOrderRequest, keycloakId, email);
-        if (orderPlacedSuccess == false) {
-            return BadRequest(ApiResponse<string>.Error("Stoc epuizat produs sau o eroare interna a serverului"));
+        ServiceResult<string> orderPlacedSuccess = await _productService.PlaceOrder(placeOrderRequest, keycloakId, email);
+
+        if (orderPlacedSuccess.Success == false) {
+            return BadRequest(ApiResponse<string>.Error(orderPlacedSuccess.ErrorMessage));
         }
-        return (orderPlacedSuccess) ? Ok(ApiResponse<string>.Success("place order")) : BadRequest(ApiResponse<string>.Error("comanda nu s-a putut efectua"));
+        return (orderPlacedSuccess.Success) ? Ok(ApiResponse<string>.Success(orderPlacedSuccess.Data)) : BadRequest(ApiResponse<string>.Error(orderPlacedSuccess.ErrorMessage));
     }
 
     [HttpGet("orders")]
