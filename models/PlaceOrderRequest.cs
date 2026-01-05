@@ -1,3 +1,5 @@
+namespace DemoApi.Models;
+
 public record AddressRequest (
     string City,
     string Street,

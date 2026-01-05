@@ -72,4 +72,14 @@ public class OrdersControllers: ControllerBase
                     productsCache ?? new List<OrderResponse>()) ) );
         
     }
+
+    [HttpPatch("{index}")]
+    [Authorize(Roles = nameof(Role.ADMIN))]
+    public async Task<ActionResult<ApiResponse<string>>> Update(int index, UpdateOrderRequest updateOrderRequest) {
+        var result = await _orderService.Update(index, updateOrderRequest);
+        if (result.Success == false) {
+            return BadRequest(ApiResponse<string>.Error(result.ErrorMessage));
+        } 
+        return Ok(ApiResponse<string>.Success(result.Data));
+    }
 }

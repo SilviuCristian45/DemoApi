@@ -11,4 +11,6 @@ public interface IOrderService
     public Task<ServiceResult<PaymentResponseDto>> CreatePaymentIntentAsync(int orderId, string userId, Role userRole);
     public Task<ServiceResult<List<OrderResponse>>> GetAll(PaginatedQueryDto paginatedQueryDto);
     public Task<int> Total(PaginatedQueryDto paginatedQueryDto);
+
+    public Task<ServiceResult<string>> Update(int orderId, UpdateOrderRequest updateOrderDto);
 }

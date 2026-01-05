@@ -1,5 +1,6 @@
 using FluentValidation;
 using DemoApi.Utils;
+using DemoApi.Models;
 
 public class PlaceOrderValidator: AbstractValidator<PlaceOrderRequest> {
     public PlaceOrderValidator() {
