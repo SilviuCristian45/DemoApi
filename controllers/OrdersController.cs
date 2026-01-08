@@ -82,4 +82,14 @@ public class OrdersControllers: ControllerBase
         } 
         return Ok(ApiResponse<string>.Success(result.Data));
     }
+
+    [HttpGet("stats")]
+    [Authorize(Roles = nameof(Role.ADMIN))]
+    public async Task<ActionResult<ApiResponse<OrderStatsResponse>>> GetTodayOrderStats() {
+        var result = await _orderService.GetTodayStats();
+        if (result.Success == false) {
+            return BadRequest(ApiResponse<OrderStatsResponse>.Error(result.ErrorMessage));
+        }
+        return Ok(result.Data);
+    }
 }

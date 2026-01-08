@@ -13,4 +13,6 @@ public interface IOrderService
     public Task<int> Total(PaginatedQueryDto paginatedQueryDto);
 
     public Task<ServiceResult<string>> Update(int orderId, UpdateOrderRequest updateOrderDto);
+
+    public Task<ServiceResult<OrderStatsResponse>> GetTodayStats();
 }

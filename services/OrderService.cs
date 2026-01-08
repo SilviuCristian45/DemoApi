@@ -222,4 +222,20 @@ public class OrderService : IOrderService
         }
     }
 
+    public async Task<ServiceResult<OrderStatsResponse>> GetTodayStats() {
+        DateTime startOfDay = DateTime.UtcNow.Date;
+        DateTime startOfNextDay = startOfDay.AddDays(1); 
+        try {
+            int todayOrders = 
+                await _context.Orders
+                    .Where(p => p.CreatedAt >= startOfDay && p.CreatedAt < startOfNextDay)
+                    .CountAsync();
+            return  ServiceResult<OrderStatsResponse>.Ok(new OrderStatsResponse(todayOrders) );
+        } catch(Exception err) {
+            _logger.LogError(err, err.Message);
+            return ServiceResult<OrderStatsResponse>.Fail(err.Message);
+        } 
+        
+    }
+
 }
