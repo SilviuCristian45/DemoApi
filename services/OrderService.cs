@@ -32,9 +32,15 @@ public class OrderService : IOrderService
 
     public async Task<ServiceResult<string>> Update(int orderId, UpdateOrderRequest updateOrderDto)
     {
+        using var transaction = await _context.Database.BeginTransactionAsync();
         try
         {
-            var order = await _context.Orders.Include(p => p.orderItems).FirstAsync( p => p.Id == orderId);
+            var order = await _context.Orders
+            .Include(o => o.orderItems)
+            .ThenInclude(oi => oi.Product) // <--- CRITIC: Ca să poți modifica stocul direct
+            .Include(o => o.Address)
+            .FirstOrDefaultAsync(p => p.Id == orderId);
+
             if (order == null)
             {
                 return ServiceResult<string>.Fail($"order with id {orderId} not found");
@@ -69,60 +75,55 @@ public class OrderService : IOrderService
             
             if (updateOrderDto.Items != null && updateOrderDto.Items.Count > 0)
             {
-                //pt order itemsi care nu mai apar in noua lista de comenzi 
-                var orderItemsRemoved = order.orderItems.Where(p => updateOrderDto.Items.Select(p => p.ProductId).Contains(p.Id) == false);
-                var orderItemsAdded = updateOrderDto.Items.Where(p => order.orderItems.Select(p => p.ProductId).Contains(p.ProductId) == false);
-
-                var orderItemsRemovedIds = orderItemsRemoved.Select(p2 => p2.ProductId);
-                var productsToBeremoved = await _context.Products.Where(p => orderItemsRemovedIds.Contains(p.Id)).ToListAsync();
-                var productsToBeremovedDictionary = productsToBeremoved.ToDictionary(p => p.Id);
-                
-                var orderItemsAddedIds = orderItemsAdded.Select(p => p.ProductId);
-                var productsToBeAdded = await _context.Products.Where(p => orderItemsAddedIds.Contains(p.Id)).ToListAsync();
-                var productsToBeAddedDictionary = productsToBeAdded.ToDictionary(p => p.Id);
-
-
-                //sunt practic scoase din comanda, trebuie crescut stocul
-                foreach (var item in orderItemsRemoved)
+                foreach (var oldItem in order.orderItems)
                 {
-                    productsToBeremovedDictionary.TryGetValue(item.ProductId, out DemoApi.Models.Entities.Product? product);
-                    if (product != null) {
-                        product.Stock += item.Quantity;
+                    // Verificăm dacă produsul mai există în DB (să nu fie null)
+                    if (oldItem.Product != null)
+                    {
+                        oldItem.Product.Stock += oldItem.Quantity;
                     }
                 }
 
-                //adaugate in comanda, le scade stocul
-                foreach (var item in orderItemsAdded)
-                {
-                    productsToBeAddedDictionary.TryGetValue(item.ProductId, out DemoApi.Models.Entities.Product? product);
-                    if (product != null) {
-                        product.Stock -= item.Quantity;
-                    }
-                }
-                
                 await _context.SaveChangesAsync();
 
                 order.orderItems.Clear();
+                
                 decimal totalPrice = 0;
+
+                var newProductIds = updateOrderDto.Items.Select(x => x.ProductId).Distinct().ToList();
+                var productsInDb = await _context.Products
+                                             .Where(p => newProductIds.Contains(p.Id))
+                                             .ToListAsync();
+
                 foreach (var item in updateOrderDto.Items)
                 {
-                    var product = _context.Products.Find(item.ProductId);
-                    order.orderItems.Add(new Models.Entities.OrderItem() {
-                        ProductId = item.ProductId,
-                        Quantity = item.Quantity,
-                        OrderId = order.Id,
-                        Price = (product?.Price ?? 0) * item.Quantity
-                    });
-                    totalPrice += (product?.Price ?? 0) * item.Quantity;
+                    var product = productsInDb.FirstOrDefault(p => p.Id == item.ProductId);
+                    if (product != null) {
+                        if (product.Stock >= item.Quantity) {
+                            product.Stock -= item.Quantity;
+                            order.orderItems.Add(new Models.Entities.OrderItem() {
+                                ProductId = item.ProductId,
+                                Quantity = item.Quantity,
+                                OrderId = order.Id,
+                                Price = (product?.Price ?? 0) * item.Quantity
+                            });
+                            totalPrice += (product?.Price ?? 0) * item.Quantity;
+                        } else {
+                            return ServiceResult<string>.Fail($"Stoc insuficient pentru {product.Name}.");
+                        }
+                    }
                 }
+
                 order.Price = totalPrice;
             }
 
             await _context.SaveChangesAsync();
+            await transaction.CommitAsync();
             return ServiceResult<string>.Ok("suces");
         }
         catch (Exception ex)
         {
+            await transaction.RollbackAsync();
             _logger.LogError(ex, ex.Message);
             return ServiceResult<string>.Fail("fail update");
         }
