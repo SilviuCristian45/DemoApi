@@ -112,6 +112,7 @@ builder.Services.AddScoped<IAuthService, AuthService>();
 builder.Services.AddScoped<IProductService, ProductsService>();
 builder.Services.AddScoped<PaymentService>();
 builder.Services.AddScoped<IOrderService, OrderService>();
+builder.Services.AddScoped<IEmailService, EmailService>();
 
 // 1. Configurare Client Supabase
 var url = builder.Configuration["Supabase:Url"] ?? "localhost";

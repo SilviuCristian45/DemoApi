@@ -19,18 +19,21 @@ class ProductsService: IProductService
 
     // 1. Definim câmpul pentru HubContext
     private readonly IHubContext<NotificationsHub> _hubContext;
+    private readonly IEmailService _emailService;
 
     // Injectăm Baza de Date AICI, nu în Controller
     public ProductsService(
         AppDbContext context, 
         ILogger<ProductsService> logger, 
         IHubContext<NotificationsHub> hubContext,
-        IMapper mapper)
+        IMapper mapper,
+        IEmailService emailService)
     {
         _context = context;
         _logger  = logger;
         _mapper = mapper;
         _hubContext = hubContext;
+        _emailService = emailService;
     }
 
 
@@ -138,10 +141,6 @@ class ProductsService: IProductService
                 }
             );
 
-            if (paymentType == PaymentType.RAMBURS) {
-                newOrder.Entity.Status = OrderStatus.Placed;
-            }
-
             var products = await _context.Products.Where(p => productsIds.Contains(p.Id)).ToListAsync();
             var productsMap = products.ToDictionary(p => p.Id);
             foreach (var item in placeOrderRequest.Items) {
@@ -188,8 +187,19 @@ class ProductsService: IProductService
                 Status = newOrder.Entity.Status.ToString(),
                 Date = DateTime.Now
             }; 
+
+            try { await _hubContext.Clients.All.SendAsync("OrderPlaced", notificationData); } catch {}
+
+            if (paymentType == PaymentType.RAMBURS) {
+                newOrder.Entity.Status = OrderStatus.Placed;
+                try {
+                   await _emailService.SendOrderConfirmationAsync(placeOrderRequest.Email, newOrder.Entity);
+                } catch (Exception ex) {
+                    _logger.LogError(ex, ex.Message);
+                    return ServiceResult<string>.Fail("mail-ul de confirmare nu a fost trimis");
+                }
+            }
         
-            await _hubContext.Clients.All.SendAsync("OrderPlaced", notificationData);
 
             return ServiceResult<string>.Ok("Comanda plasata cu succes");
         } catch(Exception ex) {

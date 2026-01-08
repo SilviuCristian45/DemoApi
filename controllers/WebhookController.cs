@@ -4,10 +4,8 @@ using DemoApi.Data; // sau namespace-ul contextului tau
 using DemoApi.Models.Entities; // namespace-ul entitatii Order
 using Microsoft.EntityFrameworkCore;
 
-using MailKit.Net.Smtp;  // Pentru SmtpClient
-using MailKit.Security;  // Pentru SecureSocketOptions
-using MimeKit;           // Pentru MimeMessage, BodyBuilder
 
+using DemoApi.Services;
 using DemoApi.Utils;
 
 [Route("api/webhook")]
@@ -18,14 +16,19 @@ public class WebhookController : ControllerBase
     private readonly IConfiguration _configuration;
     private readonly IServiceScopeFactory _scopeFactory;
 
+    private readonly IEmailService _emailService;
+
     public WebhookController(
         ILogger<WebhookController> logger, 
         IConfiguration configuration,
-        IServiceScopeFactory scopeFactory)
+        IServiceScopeFactory scopeFactory,
+        IEmailService emailService
+    )
     {
         _logger = logger;
         _configuration = configuration;
         _scopeFactory = scopeFactory;
+        _emailService = emailService;
     }
 
     [HttpPost]
@@ -60,12 +63,8 @@ public class WebhookController : ControllerBase
                 await UpdateOrderToPaid(order);
                 await context.SaveChangesAsync();
                  _logger.LogInformation($"Comanda {order.Id} a fost actualizată la statusul PAID.");
-                await this.SendEmailTest(order);
-                
-                
+                await _emailService.SendOrderConfirmationAsync(order?.Email ?? "", order);
             }
-            // Putem gestiona și 'payment_intent.payment_failed' dacă vrem
-
             return Ok(); // Confirmăm primirea către Stripe
         }
         catch (StripeException e)
@@ -80,58 +79,7 @@ public class WebhookController : ControllerBase
         }
     }
 
-    private async Task SendEmailTest(Order order)
-    {
-        if (order == null)
-        {
-            _logger.LogWarning("nu a fost gasita comanda cu payment Id de mai sus");
-            return;
-        }
-
-        // 1. Crearea Mesajului (MimeKit)
-        var email = new MimeMessage();
-        email.From.Add(new MailboxAddress("Nume Expeditor", "expeditor@demo.com"));
-        email.To.Add(new MailboxAddress("Client", order.Email ?? "silviudinca412@gmail.com"));
-        email.Subject = "Test SMTP din C#";
-
-        var builder = new BodyBuilder();
-        builder.HtmlBody = $"<h1>Pret total comanda : {order.Price}</h1>";
-
-        foreach (var item in order.orderItems)
-        {
-            builder.HtmlBody += "<p>" + item.Product?.Name.ToString() + " " + item.Quantity.ToString() + "</p>"; 
-        }
-
-        email.Body = builder.ToMessageBody();
-
-        // 2. Trimiterea Mesajului (MailKit)
-        using var smtp = new SmtpClient(); // Atenție: e SmtpClient din MailKit, nu System.Net!
-
-        try 
-        {
-            // Conectare la Mailtrap
-            // Porturile uzuale Mailtrap: 2525 sau 587
-            await smtp.ConnectAsync("sandbox.smtp.mailtrap.io", 2525, SecureSocketOptions.StartTls);
-
-            // Autentificare (User si Pass din Mailtrap Dashboard)
-            
-            await smtp.AuthenticateAsync(_configuration["EmailSettings:Username"], _configuration["EmailSettings:Password"]);
-
-            // Trimitere
-            await smtp.SendAsync(email);
-            
-            Console.WriteLine("Email trimis cu succes!");
-        }
-        catch (Exception ex) 
-        {
-            Console.WriteLine($"Eroare: {ex.Message}");
-        }
-        finally
-        {
-            // Deconectare curată
-            await smtp.DisconnectAsync(true);
-        }
-    }
+    
 
     // Metodă privată pentru update DB
     private async Task UpdateOrderToPaid(Order order)

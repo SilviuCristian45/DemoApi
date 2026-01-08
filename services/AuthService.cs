@@ -21,6 +21,7 @@ public class AuthService : IAuthService
     private readonly IMemoryCache _cache;
 
     private readonly MemoryCacheEntryOptions _cacheOptions;
+    
 
     // Injectăm dependențele exact ca înainte, dar acum în Service
     public AuthService(IConfiguration configuration, IWebHostEnvironment env, IMemoryCache cache)

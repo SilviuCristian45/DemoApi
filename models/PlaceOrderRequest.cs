@@ -11,5 +11,6 @@ public record PlaceOrderRequest (
     List<CartItem> Items,
     AddressRequest Address,    
     string PhoneNumber,
+    string Email,
     string PaymentType
 );
